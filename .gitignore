@@ -1,0 +1,88 @@
+# ==============================================================================
+# 1. BẢO MẬT & DỮ LIỆU NHẠY CẢM (CONFIDENTIAL / SENSITIVE DATA)
+# ==============================================================================
+# Tài liệu mẫu kiểm thử, văn bản chứa dữ liệu cơ quan, thông tin cán bộ
+Tai_Lieu_Mau_Test/
+*.docx
+*.doc
+*.pdf
+*.docx.bak
+*.bak
+*.tmp
+~$*.docx
+~$*.doc
+
+# Giữ lại các tệp template mẫu chuẩn chung (Generic Mock Templates)
+!templates/Mau_Van_Ban_Dang_HD36.docx
+!templates/Mau_Van_Ban_Hanh_Chinh_ND30.docx
+
+# Khóa bảo mật, chứng thư số, mã định danh, token ký
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.csr
+*.jks
+.env
+.env.*
+secrets/
+credentials/
+tokens/
+
+# ==============================================================================
+# 2. BẢN BUILD BIÊN DỊCH & FILE ĐÓNG GÓI NẶNG (DIST & BUILD ARTIFACTS)
+# ==============================================================================
+dist/
+build/
+*.exe
+*.zip
+*.tar.gz
+*.rar
+*.7z
+Output/
+_internal/
+
+# ==============================================================================
+# 3. PYTHON BYTECODE & VIRTUAL ENVIRONMENTS
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==============================================================================
+# 4. KIỂM THỬ & NHẬT KÝ HỆ THỐNG (TESTING & LOGS)
+# ==============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+logs/
+
+# ==============================================================================
+# 5. CẤU HÌNH IDE & HỆ ĐIỀU HÀNH (OS & EDITORS)
+# ==============================================================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ==============================================================================
+# 6. TRỌNG SỐ MÔ HÌNH AI / OCR WEIGHTS NẶNG
+# ==============================================================================
+*.onnx
+*.weights
+*.bin

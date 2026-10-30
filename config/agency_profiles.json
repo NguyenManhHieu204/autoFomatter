@@ -1,0 +1,82 @@
+{
+  "active_profile_id": "party_tinhuy",
+  "profiles": [
+    {
+      "id": "party_tinhuy",
+      "name": "Tỉnh ủy (Cấp ủy Đảng)",
+      "standard_id": "HD36",
+      "superior_agency": "TỈNH ỦY HÀ NỘI",
+      "issuing_agency": "BAN THƯỜNG VỤ",
+      "location": "Hà Nội",
+      "doc_type": "Công văn",
+      "doc_number_symbol": "CV/TU",
+      "authority_prefix": "T/M BAN THƯỜNG VỤ",
+      "signer_position": "BÍ THƯ",
+      "signer_name": "Nguyễn Văn An",
+      "recipients": [
+        "- Thường trực Tỉnh ủy (để b/c),",
+        "- Các ban đảng, ban cán sự đảng, đảng đoàn,",
+        "- Các huyện, thị, thành ủy và đảng ủy trực thuộc,",
+        "- Lưu: VT, TH."
+      ]
+    },
+    {
+      "id": "party_vanphong",
+      "name": "Văn phòng Tỉnh ủy (Cơ quan chuyên trách)",
+      "standard_id": "HD36",
+      "superior_agency": "TỈNH ỦY HÀ NỘI",
+      "issuing_agency": "VĂN PHÒNG",
+      "location": "Hà Nội",
+      "doc_type": "Thông báo",
+      "doc_number_symbol": "TB/VPTU",
+      "authority_prefix": "T/L BAN THƯỜNG VỤ",
+      "signer_position": "CHÁNH VĂN PHÒNG",
+      "signer_name": "Trần Thị Bình",
+      "recipients": [
+        "- Thường trực Tỉnh ủy (để b/c),",
+        "- Lãnh đạo Văn phòng Tỉnh ủy,",
+        "- Các phòng chuyên môn,",
+        "- Lưu: VT, HC."
+      ]
+    },
+    {
+      "id": "state_ubnd",
+      "name": "Ủy ban nhân dân tỉnh/thành phố",
+      "standard_id": "ND30",
+      "superior_agency": "ỦY BAN NHÂN DÂN",
+      "issuing_agency": "THÀNH PHỐ HÀ NỘI",
+      "location": "Hà Nội",
+      "doc_type": "Quyết định",
+      "doc_number_symbol": "QĐ-UBND",
+      "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+      "signer_position": "CHỦ TỊCH",
+      "signer_name": "Lê Văn Cường",
+      "recipients": [
+        "- Thường trực HĐND thành phố,",
+        "- Chủ tịch, các Phó Chủ tịch UBND TP,",
+        "- Các sở, ban, ngành thành phố,",
+        "- UBND các quận, huyện, thị xã,",
+        "- Lưu: VT, TH."
+      ]
+    },
+    {
+      "id": "state_so_noivu",
+      "name": "Sở Nội vụ (Cơ quan chuyên môn)",
+      "standard_id": "ND30",
+      "superior_agency": "ỦY BAN NHÂN DÂN THÀNH PHỐ HÀ NỘI",
+      "issuing_agency": "SỞ NỘI VỤ",
+      "location": "Hà Nội",
+      "doc_type": "Tờ trình",
+      "doc_number_symbol": "TTr-SNV",
+      "authority_prefix": "KT. GIÁM ĐỐC",
+      "signer_position": "PHÓ GIÁM ĐỐC",
+      "signer_name": "Phạm Văn Dũng",
+      "recipients": [
+        "- UBND thành phố (để b/c),",
+        "- Ban Giám đốc Sở,",
+        "- Các phòng chuyên môn thuộc Sở,",
+        "- Lưu: VT, CCHC."
+      ]
+    }
+  ]
+}

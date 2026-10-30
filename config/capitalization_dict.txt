@@ -1,0 +1,22 @@
+# Từ điển danh từ/tổ chức chuẩn hóa hành chính
+# Cú pháp:
+# Từ_chính_xác | Ghi_chú_hoặc_phân_loại
+Đảng Cộng sản Việt Nam|Cơ quan lãnh đạo
+Ban Chấp hành Trung ương|Cơ quan Đảng
+Bộ Chính trị|Cơ quan Đảng
+Ban Bí thư|Cơ quan Đảng
+Quốc hội|Cơ quan Nhà nước
+Ủy ban Thường vụ Quốc hội|Cơ quan Nhà nước
+Chủ tịch nước|Cơ quan Nhà nước
+Chính phủ|Cơ quan Nhà nước
+Thủ tướng Chính phủ|Chức vụ lãnh đạo
+Ủy ban nhân dân|Cơ quan hành chính
+Hội đồng nhân dân|Cơ quan dân cử
+Tòa án nhân dân tối cao|Cơ quan tư pháp
+Viện kiểm sát nhân dân tối cao|Cơ quan kiểm sát
+Mặt trận Tổ quốc Việt Nam|Đoàn thể
+Đoàn Thanh niên Cộng sản Hồ Chí Minh|Đoàn thể
+Hội Liên hiệp Phụ nữ Việt Nam|Đoàn thể
+Hội Nông dân Việt Nam|Đoàn thể
+Hội Cựu chiến binh Việt Nam|Đoàn thể
+Tổng Liên đoàn Lao động Việt Nam|Đoàn thể

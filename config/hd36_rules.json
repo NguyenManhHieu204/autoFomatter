@@ -1,0 +1,84 @@
+{
+  "standard_id": "HD36",
+  "name": "Hướng dẫn số 36-HD/VPTW (Văn bản Đảng)",
+  "description": "Thể thức và kỹ thuật trình bày văn bản của Đảng theo Hướng dẫn 36-HD/VPTW ngày 03/4/2018 của Văn phòng Trung ương Đảng",
+  "page": {
+    "size": "A4",
+    "width_mm": 210,
+    "height_mm": 297,
+    "margin_top_mm": 20.0,
+    "margin_bottom_mm": 20.0,
+    "margin_left_mm": 30.0,
+    "margin_right_mm": 15.0
+  },
+  "typography": {
+    "font_name": "Times New Roman",
+    "body_font_size_pt": 14.0,
+    "body_line_spacing": 1.2,
+    "body_space_before_pt": 6.0,
+    "body_space_after_pt": 0.0,
+    "body_first_line_indent_mm": 12.7,
+    "body_alignment": "JUSTIFY"
+  },
+  "page_number": {
+    "font_size_pt": 13.0,
+    "position": "TOP_CENTER",
+    "hide_first_page": true,
+    "bold": false,
+    "italic": false
+  },
+  "header": {
+    "superior_agency_font_size_pt": 13.0,
+    "superior_agency_bold": false,
+    "superior_agency_uppercase": true,
+    "issuing_agency_font_size_pt": 13.0,
+    "issuing_agency_bold": true,
+    "issuing_agency_uppercase": true,
+    "party_heading_font_size_pt": 14.0,
+    "party_heading_text": "ĐẢNG CỘNG SẢN VIỆT NAM",
+    "party_heading_bold": true,
+    "doc_number_font_size_pt": 13.0,
+    "doc_number_prefix": "Số ",
+    "date_font_size_pt": 13.5,
+    "date_italic": true
+  },
+  "subject": {
+    "doc_type_font_size_pt": 14.0,
+    "doc_type_bold": true,
+    "doc_type_uppercase": true,
+    "doc_type_alignment": "CENTER",
+    "summary_font_size_pt": 14.0,
+    "summary_bold": true,
+    "summary_alignment": "CENTER"
+  },
+  "signing": {
+    "authority_prefix_style": "SLASH",
+    "authority_prefixes": [
+      "T/M BAN THƯỜNG VỤ",
+      "T/M ĐẢNG ỦY",
+      "T/M BAN CHẤP HÀNH",
+      "K/T TRƯỞNG BAN",
+      "K/T BÍ THƯ",
+      "T/L CHÁNH VĂN PHÒNG",
+      "T/L TRƯỞNG BAN",
+      "T/M"
+    ],
+    "position_font_size_pt": 14.0,
+    "position_bold": true,
+    "position_uppercase": true,
+    "signature_blank_lines": 4,
+    "signer_name_font_size_pt": 14.0,
+    "signer_name_bold": true,
+    "signer_name_uppercase": false
+  },
+  "recipients": {
+    "header_text": "Nơi nhận:",
+    "header_font_size_pt": 12.0,
+    "header_bold": true,
+    "header_italic": true,
+    "item_font_size_pt": 11.5,
+    "item_line_spacing": 1.0,
+    "item_space_after_pt": 0.0,
+    "default_last_item": "- Lưu: VT, ..."
+  }
+}
