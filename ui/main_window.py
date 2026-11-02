@@ -242,6 +242,17 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._refresh_profiles_dropdown()
 
+    def _load_profiles_data(self):
+        p_path = os.path.join(self.config_dir, "agency_profiles.json")
+        if os.path.exists(p_path):
+            try:
+                with open(p_path, "r", encoding="utf-8") as f:
+                    self.profiles_data = json.load(f)
+            except Exception:
+                self.profiles_data = {"profiles": []}
+        else:
+            self.profiles_data = {"profiles": []}
+
     def _get_selected_standard(self) -> str:
         """Lấy chuẩn thể thức đang chọn: 'HD36' (Đảng) hoặc 'ND30' (Nhà nước)"""
         return "HD36" if hasattr(self, "rb_hd36") and self.rb_hd36.isChecked() else "ND30"
