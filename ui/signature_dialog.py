@@ -191,9 +191,20 @@ class PdfInteractiveCanvas(QWidget):
         if self.current_page == self.target_page:
             box_rect = self._get_box_rect()
             is_personal = (self.sign_type == "personal")
+            is_combined = (self.sign_type == "combined")
 
-            primary_color = QColor(124, 58, 237) if is_personal else QColor(220, 38, 38)
-            bg_color = QColor(237, 233, 254, 180) if is_personal else QColor(254, 226, 226, 180)
+            if is_personal:
+                primary_color = QColor(124, 58, 237)
+                bg_color = QColor(237, 233, 254, 180)
+                badge_text = "Chữ ký cá nhân (NĐ 30)"
+            elif is_combined:
+                primary_color = QColor(16, 185, 129)
+                bg_color = QColor(209, 250, 229, 180)
+                badge_text = "Ký kết hợp: Dấu trùm 1/3 chữ ký (Điều 13 NĐ 30)"
+            else:
+                primary_color = QColor(220, 38, 38)
+                bg_color = QColor(254, 226, 226, 180)
+                badge_text = "Con dấu cơ quan (NĐ 30)"
 
             # Nền mờ cho ô chữ ký
             painter.fillRect(box_rect, bg_color)
@@ -220,7 +231,6 @@ class PdfInteractiveCanvas(QWidget):
             painter.setPen(Qt.GlobalColor.white)
             badge_font = QFont("Segoe UI", 8, QFont.Weight.Bold)
             painter.setFont(badge_font)
-            badge_text = "Chữ ký cá nhân (NĐ 30)" if is_personal else "Con dấu cơ quan (NĐ 30)"
             painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, badge_text)
 
             # Vẽ nội dung mô phỏng bên trong ô ký
@@ -489,15 +499,20 @@ class SignatureDialog(QDialog):
         row_type = QHBoxLayout()
         self.rb_personal = QRadioButton("Chữ ký cá nhân (Người ký)")
         self.rb_agency = QRadioButton("Con dấu số cơ quan")
+        self.rb_combined = QRadioButton("Ký kết hợp (Dấu trùm 1/3 chữ ký)")
         self.rb_personal.setChecked(True)
         self.rb_personal.toggled.connect(self._on_sign_type_toggled)
+        self.rb_agency.toggled.connect(self._on_sign_type_toggled)
+        self.rb_combined.toggled.connect(self._on_sign_type_toggled)
 
         self.type_btn_group = QButtonGroup(self)
         self.type_btn_group.addButton(self.rb_personal, 0)
         self.type_btn_group.addButton(self.rb_agency, 1)
+        self.type_btn_group.addButton(self.rb_combined, 2)
 
         row_type.addWidget(self.rb_personal)
         row_type.addWidget(self.rb_agency)
+        row_type.addWidget(self.rb_combined)
         type_layout.addLayout(row_type)
 
         # Họ tên / Đơn vị
@@ -669,7 +684,13 @@ class SignatureDialog(QDialog):
         self.canvas.set_stamp_size(w, h)
 
     def _sync_canvas_preview(self):
-        sign_type = "personal" if self.rb_personal.isChecked() else "agency"
+        if self.rb_personal.isChecked():
+            sign_type = "personal"
+        elif self.rb_combined.isChecked():
+            sign_type = "combined"
+        else:
+            sign_type = "agency"
+
         name = self.txt_signer_name.text().strip()
         title = self.txt_signer_title.text().strip()
         agency = name if sign_type == "agency" else (self.default_agency or "CƠ QUAN BAN HÀNH")
@@ -742,6 +763,12 @@ class SignatureDialog(QDialog):
             self.lbl_img_caption.setText("Ảnh chữ ký tay:")
             self.sp_width.setValue(65)
             self.sp_height.setValue(32)
+        elif self.rb_combined.isChecked():
+            self.lbl_name_caption.setText("Họ tên người ký:")
+            self.lbl_title_caption.setText("Chức vụ:")
+            self.lbl_img_caption.setText("Ảnh dấu/chữ ký:")
+            self.sp_width.setValue(75)
+            self.sp_height.setValue(36)
         else:
             self.lbl_name_caption.setText("Tên cơ quan:")
             self.lbl_title_caption.setText("Thẩm quyền:")
@@ -798,7 +825,13 @@ class SignatureDialog(QDialog):
         if not selected_cert:
             selected_cert = self.certs[0]
 
-        sign_type = "personal" if self.rb_personal.isChecked() else "agency"
+        if self.rb_personal.isChecked():
+            sign_type = "personal"
+        elif self.rb_combined.isChecked():
+            sign_type = "combined"
+        else:
+            sign_type = "agency"
+
         signer_name = self.txt_signer_name.text().strip()
         signer_title = self.txt_signer_title.text().strip()
         stamp_img = self.txt_img_path.text().strip() if os.path.exists(self.txt_img_path.text().strip()) else None

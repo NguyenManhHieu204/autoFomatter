@@ -552,6 +552,11 @@ class AdministrativeSanitizer:
                 i += 1
                 continue
 
+            # Nếu t_p là tiêu đề La Mã (I., II.) hoặc đề mục độc lập (1., 2.), không gộp đoạn sau vào
+            if re.match(r'^[IVXLCDM]+\.\s+', t_p) or re.match(r'^\d+[\.:]\s+[A-ZÀ-Ỹ]', t_p):
+                i += 1
+                continue
+
             # Kiểm tra nếu next_p là đoạn mở đầu khối mới độc lập (KHÔNG NỐI)
             is_starter = False
             if re.match(r'^[-–—•*]?\s*(căn\s*cứ|can\s*cur|can\s*cu)\b', t_next, re.IGNORECASE):
@@ -566,6 +571,15 @@ class AdministrativeSanitizer:
                 is_starter = True
             elif re.match(r'^[-–—•*]', t_next) and not t_p.endswith('-'):
                 # Dòng gạch đầu dòng là mục danh sách độc lập
+                is_starter = True
+            elif re.match(r'^\+\s+', t_next):
+                # Dòng cộng đầu dòng là mục danh sách độc lập
+                is_starter = True
+            elif re.match(r'^[a-z]\)\s+', t_next, re.IGNORECASE):
+                # Dòng chữ cái a), b), c) là mục danh sách độc lập
+                is_starter = True
+            elif re.match(r'^([IVXLCDM]+\.|\d+[\.:])\s+', t_next):
+                # Đề mục La Mã I., II. hoặc số 1., 2.
                 is_starter = True
             elif re.match(r'^\d+\s*[-A-Za-zÀ-ỹ]', t_next) and not t_p.endswith('-'):
                 is_starter = True

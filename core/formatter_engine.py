@@ -669,6 +669,59 @@ class FormatterEngine:
                 report.paragraphs_formatted += 1
                 continue
 
+            # 5b. Kiểm tra Phân cấp danh sách văn bản Đảng & Nhà nước (Multi-level Indentation)
+            # Cấp 1: a), b), c) -> Thụt lề trái 10mm
+            # Cấp 2: - (gạch đầu dòng) -> Thụt lề trái 14mm
+            # Cấp 3: + (dấu cộng) -> Thụt lề trái 18mm
+            m_letter = re.match(r'^([a-z]\))\s+', text, re.IGNORECASE)
+            m_dash = re.match(r'^([-–—•*])\s+', text)
+            m_plus = re.match(r'^(\+)\s+', text)
+
+            if m_letter:
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.paragraph_format.left_indent = Mm(10.0)
+                p.paragraph_format.first_line_indent = Mm(0)
+                p.paragraph_format.space_before = Pt(2)
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.line_spacing = line_spacing
+                for run in p.runs:
+                    if not run_has_drawings_or_images(run):
+                        is_b = run.font.bold if run.font.bold is not None else False
+                        is_i = run.font.italic if run.font.italic is not None else False
+                        format_run(run, font_name=font_name, size_pt=body_font_size, bold=is_b, italic=is_i)
+                report.paragraphs_formatted += 1
+                continue
+
+            elif m_dash and not text.startswith("Căn cứ") and not text.startswith("Theo đề nghị"):
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.paragraph_format.left_indent = Mm(14.0)
+                p.paragraph_format.first_line_indent = Mm(-4.0)
+                p.paragraph_format.space_before = Pt(1)
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.line_spacing = line_spacing
+                for run in p.runs:
+                    if not run_has_drawings_or_images(run):
+                        is_b = run.font.bold if run.font.bold is not None else False
+                        is_i = run.font.italic if run.font.italic is not None else False
+                        format_run(run, font_name=font_name, size_pt=body_font_size, bold=is_b, italic=is_i)
+                report.paragraphs_formatted += 1
+                continue
+
+            elif m_plus:
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.paragraph_format.left_indent = Mm(18.0)
+                p.paragraph_format.first_line_indent = Mm(-4.0)
+                p.paragraph_format.space_before = Pt(1)
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.line_spacing = line_spacing
+                for run in p.runs:
+                    if not run_has_drawings_or_images(run):
+                        is_b = run.font.bold if run.font.bold is not None else False
+                        is_i = run.font.italic if run.font.italic is not None else False
+                        format_run(run, font_name=font_name, size_pt=body_font_size, bold=is_b, italic=is_i)
+                report.paragraphs_formatted += 1
+                continue
+
             # 6. Các đoạn văn thân bài thông thường (Body)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p.paragraph_format.first_line_indent = first_line_indent
@@ -708,6 +761,25 @@ class FormatterEngine:
                 continue
 
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+            # Chống vỡ bảng nhiều trang và ngắt gãy dòng (Multi-page Table Protection)
+            # 1. tblHeader: Lặp lại tiêu đề bảng ở mỗi trang
+            if len(table.rows) > 0:
+                try:
+                    trPr0 = table.rows[0]._tr.get_or_add_trPr()
+                    if trPr0.find(qn('w:tblHeader')) is None:
+                        trPr0.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+                except Exception:
+                    pass
+
+            # 2. cantSplit: Không cho phép bẻ đôi dòng qua 2 trang
+            for row in table.rows:
+                try:
+                    trPr = row._tr.get_or_add_trPr()
+                    if trPr.find(qn('w:cantSplit')) is None:
+                        trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+                except Exception:
+                    pass
             for row in table.rows:
                 for cell in row.cells:
                     for p in cell.paragraphs:

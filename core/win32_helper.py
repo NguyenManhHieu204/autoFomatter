@@ -10,13 +10,76 @@ Chức năng:
 
 import os
 import sys
+import threading
+import subprocess
 from contextlib import contextmanager
-from typing import Optional, Dict, Any, Tuple, Generator
+from typing import Optional, Dict, Any, Tuple, Generator, Set
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+
+class WordWatchdog:
+    """
+    Cơ chế giám sát thời gian chờ (Timeout Watchdog) cho tiến trình MS Word COM:
+    - Theo dõi tiến trình WINWORD.EXE được sinh ra trong phiên làm việc.
+    - Nếu Word COM bị treo do hộp thoại ẩn (Modal Dialog, Recovery, Macro Prompt) quá timeout_sec,
+      Watchdog sẽ tự động giải phóng và chấm dứt (kill) tiến trình bị treo.
+    - Bảo vệ hệ thống khỏi hiện tượng tràn bộ nhớ và Zombie Process trong môi trường không mạng (Air-gap).
+    """
+    def __init__(self, timeout_sec: float = 30.0, target_pid: Optional[int] = None):
+        self.timeout_sec = timeout_sec
+        self.target_pid = target_pid
+        self._timer: Optional[threading.Timer] = None
+        self.triggered = False
+
+    def start(self):
+        if self.timeout_sec > 0:
+            self._timer = threading.Timer(self.timeout_sec, self._on_timeout)
+            self._timer.daemon = True
+            self._timer.start()
+
+    def cancel(self):
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+
+    def _on_timeout(self):
+        self.triggered = True
+        if self.target_pid:
+            try:
+                if psutil and psutil.pid_exists(self.target_pid):
+                    p = psutil.Process(self.target_pid)
+                    p.kill()
+                else:
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", str(self.target_pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        check=False
+                    )
+            except Exception:
+                pass
+
+
+def get_current_winword_pids() -> Set[int]:
+    """Lấy danh sách các PID tiến trình WINWORD.EXE đang chạy"""
+    pids = set()
+    if psutil:
+        try:
+            for p in psutil.process_iter(['pid', 'name']):
+                if p.info['name'] and p.info['name'].lower() == 'winword.exe':
+                    pids.add(p.info['pid'])
+        except Exception:
+            pass
+    return pids
 
 
 class Win32WordHelper:
-    def __init__(self):
+    def __init__(self, default_timeout_sec: float = 35.0):
         self._available = None
+        self.default_timeout_sec = default_timeout_sec
 
     def is_word_available(self) -> bool:
         """Kiểm tra xem MS Word COM có khởi động được trên máy trạm không (kết quả được lưu đệm)"""
@@ -55,10 +118,17 @@ class Win32WordHelper:
 
         pythoncom.CoInitialize()
         word = None
+        target_pid = None
         try:
+            pids_before = get_current_winword_pids()
             word = win32com.client.DispatchEx("Word.Application")
+            pids_after = get_current_winword_pids()
+            spawned = pids_after - pids_before
+            if spawned:
+                target_pid = list(spawned)[0]
+
             word.Visible = False
-            word.DisplayAlerts = False
+            word.DisplayAlerts = 0  # wdAlertsNone: Triệt tiêu mọi hộp thoại tương tác
             try:
                 # msoAutomationSecurityForceDisable = 3: Vô hiệu hóa triệt để Macro/VBA độc hại
                 word.AutomationSecurity = 3
@@ -72,6 +142,12 @@ class Win32WordHelper:
             if word is not None:
                 try:
                     word.Quit()
+                except Exception:
+                    pass
+            # Đảm bảo tiến trình được giải phóng triệt để nếu còn sót
+            if target_pid and psutil and psutil.pid_exists(target_pid):
+                try:
+                    psutil.Process(target_pid).kill()
                 except Exception:
                     pass
             pythoncom.CoUninitialize()
@@ -119,21 +195,34 @@ class Win32WordHelper:
         is_standalone = (word_app is None)
         word = word_app
         doc = None
+        target_pid = None
+        watchdog = None
 
         if is_standalone:
             pythoncom.CoInitialize()
 
         try:
             if is_standalone:
+                pids_before = get_current_winword_pids()
                 word = win32com.client.DispatchEx("Word.Application")
+                pids_after = get_current_winword_pids()
+                spawned = pids_after - pids_before
+                if spawned:
+                    target_pid = list(spawned)[0]
+
                 word.Visible = False
-                word.DisplayAlerts = False
+                word.DisplayAlerts = 0  # wdAlertsNone: Triệt tiêu thông báo modal
                 try:
                     # msoAutomationSecurityForceDisable = 3: Vô hiệu hóa triệt để Macro/VBA độc hại
                     word.AutomationSecurity = 3
                     word.Application.DisplayRecentFiles = False
                 except Exception:
                     pass
+
+            # Khởi động Timeout Watchdog để bảo vệ tiến trình không bị treo vô hạn
+            if target_pid:
+                watchdog = WordWatchdog(timeout_sec=self.default_timeout_sec, target_pid=target_pid)
+                watchdog.start()
 
             # Mở tài liệu Word
             doc = word.Documents.Open(abs_docx)
@@ -175,8 +264,13 @@ class Win32WordHelper:
             result["message"] = "Đã cập nhật Fields và định dạng thành công bằng MS Word COM."
 
         except Exception as e:
-            result["message"] = f"Lỗi COM Word: {str(e)}"
+            if watchdog and watchdog.triggered:
+                result["message"] = f"Tiến trình MS Word bị treo quá {self.default_timeout_sec}s và đã được giải phóng bởi Timeout Watchdog."
+            else:
+                result["message"] = f"Lỗi COM Word: {str(e)}"
         finally:
+            if watchdog:
+                watchdog.cancel()
             if doc is not None:
                 try:
                     doc.Close(SaveChanges=True)
@@ -186,6 +280,11 @@ class Win32WordHelper:
                 if word is not None:
                     try:
                         word.Quit()
+                    except Exception:
+                        pass
+                if target_pid and psutil and psutil.pid_exists(target_pid):
+                    try:
+                        psutil.Process(target_pid).kill()
                     except Exception:
                         pass
                 pythoncom.CoUninitialize()

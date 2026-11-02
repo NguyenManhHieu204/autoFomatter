@@ -17,6 +17,100 @@ from typing import List, Dict, Any, Optional, Tuple
 import docx
 from docx.shared import Pt, Mm
 
+try:
+    import cv2
+    import numpy as np
+except ImportError:
+    cv2 = None
+    np = None
+
+
+def deskew_image(img_bgr: Any) -> Tuple[Any, float]:
+    """
+    Tự động phát hiện góc nghiêng và nắn thẳng tài liệu scan (Deskewing):
+    - Chuyển ảnh về Grayscale và nhị phân hóa cục bộ / Otsu
+    - Tìm tọa độ các điểm văn bản và tính hình chữ nhật nhỏ nhất (cv2.minAreaRect)
+    - Nếu góc nghiêng |theta| >= 0.5 độ, tiến hành xoay affine để nắn phẳng trang
+    """
+    if cv2 is None or np is None or img_bgr is None:
+        return img_bgr, 0.0
+
+    try:
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+        pts = np.argwhere(thresh > 0)
+        if len(pts) < 100:
+            return img_bgr, 0.0
+
+        pts = np.fliplr(pts)  # Chuyển đổi thành (x, y)
+        rect = cv2.minAreaRect(pts)
+        (cx, cy), (w, h), angle = rect
+        if w < h:
+            angle = -(90 + angle) if angle < 0 else (90 - angle)
+        if angle < -45:
+            angle = 90 + angle
+        elif angle > 45:
+            angle = angle - 90
+
+        # Nếu độ nghiêng nhỏ hơn 0.5 độ hoặc góc nghiêng quá lớn (> 45 độ), bỏ qua
+        if abs(angle) < 0.5 or abs(angle) > 45.0:
+            return img_bgr, 0.0
+
+        h_img, w_img = img_bgr.shape[:2]
+        center = (w_img / 2.0, h_img / 2.0)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        straightened = cv2.warpAffine(
+            img_bgr, M, (w_img, h_img),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(255, 255, 255)
+        )
+        return straightened, float(angle)
+    except Exception:
+        return img_bgr, 0.0
+
+
+def remove_red_seal_hsv(img_bgr: Any) -> Tuple[Any, int]:
+    """
+    Phân tách và loại bỏ mực con dấu đỏ bằng không gian màu HSV (Color Channel Separation):
+    - Nhận diện các dải màu đỏ của con dấu hành chính:
+      + Dải 1: Hue [0, 12], Saturation [40, 255], Value [40, 255]
+      + Dải 2: Hue [160, 180], Saturation [40, 255], Value [40, 255]
+    - Bảo toàn chữ đen nằm dưới con dấu đỏ (các điểm ảnh có độ sáng thấp V < 110)
+    - Thay thế các pixel mực đỏ thuần túy bằng màu trắng (255, 255, 255),
+      giúp RapidOCR nhận dạng trọn vẹn văn bản bên dưới con dấu đỏ mà không bị đứt nét.
+    """
+    if cv2 is None or np is None or img_bgr is None:
+        return img_bgr, 0
+
+    try:
+        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        lower_red1 = np.array([0, 40, 40])
+        upper_red1 = np.array([12, 255, 255])
+        lower_red2 = np.array([160, 40, 40])
+        upper_red2 = np.array([180, 255, 255])
+
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        red_mask = cv2.bitwise_or(mask1, mask2)
+        red_pixel_count = int(np.sum(red_mask > 0))
+
+        # Nếu không có hoặc có rất ít pixel đỏ (< 150 px), không cần xử lý
+        if red_pixel_count < 150:
+            return img_bgr, 0
+
+        # Xác định các điểm ảnh là chữ đen gốc (độ bão hòa thấp, độ sáng tối)
+        dark_text_mask = (hsv[:, :, 2] < 110) & (hsv[:, :, 1] < 65)
+
+        # Mực dấu đỏ cần tẩy là những điểm thuộc red_mask nhưng KHÔNG phải chữ đen
+        seal_to_suppress = red_mask & (~dark_text_mask)
+
+        cleaned_bgr = img_bgr.copy()
+        cleaned_bgr[seal_to_suppress > 0] = [255, 255, 255]
+        return cleaned_bgr, red_pixel_count
+    except Exception:
+        return img_bgr, 0
+
 # Singleton instance cache để tránh nạp lại mô hình ONNX nặng nề nhiều lần
 _GLOBAL_RAPID_OCR_INSTANCE = None
 
@@ -188,10 +282,29 @@ class OcrEngine:
 
     def ocr_image(self, image_path: str) -> List[str]:
         """
-        Nhận dạng chữ trên 1 tệp ảnh scan với thuật toán gom dòng chuẩn hành chính
+        Nhận dạng chữ trên 1 tệp ảnh scan với tiền xử lý chống nghiêng (Deskew)
+        và phân tách mực dấu đỏ (HSV Color Separation)
         """
         ocr = self._get_ocr_instance()
-        res, _ = ocr(image_path)
+
+        target_input = image_path
+        if cv2 is not None:
+            try:
+                img_bgr = cv2.imread(image_path)
+                if img_bgr is not None and img_bgr.size > 0:
+                    # 1. Nắn thẳng độ nghiêng scan nếu > 0.5 độ
+                    straightened, _ = deskew_image(img_bgr)
+                    # 2. Loại bỏ dấu đỏ che chữ đen nếu có
+                    cleaned, _ = remove_red_seal_hsv(straightened)
+                    target_input = cleaned
+            except Exception:
+                target_input = image_path
+
+        res, _ = ocr(target_input)
+        if not res and target_input is not image_path:
+            # Fallback chạy trực tiếp file ảnh gốc nếu qua tiền xử lý không có kết quả
+            res, _ = ocr(image_path)
+
         if not res:
             return []
 

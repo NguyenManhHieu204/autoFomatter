@@ -494,21 +494,42 @@ class PdfSignatureLocator:
         return result
 
 
+def ui_to_pdf_coordinates(norm_x: float, norm_y: float, page_w_pt: float, page_h_pt: float, box_w_pt: float, box_h_pt: float) -> Tuple[float, float]:
+    """
+    Chuyển đổi tọa độ từ Hệ màn hình trực quan (UI - Top-Left origin)
+    sang Hệ tọa độ PostScript của tệp PDF (Bottom-Left origin):
+    pdf_x = norm_x * page_w_pt
+    pdf_y = page_h_pt - (norm_y * page_h_pt) - box_h_pt
+    """
+    pdf_x = norm_x * page_w_pt
+    pdf_y = page_h_pt - (norm_y * page_h_pt) - box_h_pt
+    return round(pdf_x, 2), round(pdf_y, 2)
+
+
+def pdf_to_ui_coordinates(pdf_x: float, pdf_y: float, page_w_pt: float, page_h_pt: float, box_h_pt: float) -> Tuple[float, float]:
+    """
+    Chuyển đổi ngược từ tọa độ PDF PostScript sang normalized UI (0.0 đến 1.0)
+    """
+    norm_x = pdf_x / page_w_pt
+    norm_y = (page_h_pt - pdf_y - box_h_pt) / page_h_pt
+    return max(0.0, min(1.0, norm_x)), max(0.0, min(1.0, norm_y))
+
+
 # ==================== 4. TẠO HÌNH ẢNH CHỮ KÝ THEO NĐ 30/2020/NĐ-CP ====================
 
 class VisualStampGenerator:
     """
     Sinh hình ảnh chữ ký số chuẩn hóa theo Nghị định 30/2020/NĐ-CP:
-    - Ký cá nhân: Chữ ký tay màu xanh (hoặc sinh chữ ký điện tử chức danh màu xanh).
-    - Ký cơ quan: Con dấu đỏ tròn (tỷ lệ 1:1, đường kính chuẩn 36mm) trùm 1/3 chữ ký bên trái.
-    Hỗ trợ tọa độ trực quan tương tác thực tế từ màn hình cán bộ chọn.
+    - Ký cá nhân (personal): Chữ ký tay màu xanh kèm họ tên, thời gian ký.
+    - Ký cơ quan (agency): Con dấu đỏ tròn (tỷ lệ 1:1, đường kính chuẩn 36mm) kèm thông tin ký phát hành.
+    - Ký kết hợp (combined): Con dấu đỏ cơ quan trùm lên khoảng 1/3 chữ ký của người có thẩm quyền về phía bên trái (Điều 13 NĐ 30).
     """
 
     @classmethod
     def create_stamp_pdf(
         cls,
         output_stamp_pdf: str,
-        sign_type: str,  # 'personal' hoặc 'agency'
+        sign_type: str,  # 'personal', 'agency', hoặc 'combined'
         signer_name: str,
         signer_title: str = "",
         agency_name: str = "",
@@ -561,7 +582,6 @@ class VisualStampGenerator:
                 pix = QPixmap(custom_image_path)
                 painter.drawPixmap(sign_box_x, sign_box_y, sign_box_w, sign_box_h, pix)
             else:
-                # Tự động vẽ chữ ký điện tử màu xanh hợp thức chuẩn NĐ 30
                 painter.setPen(QColor(30, 64, 175))  # Xanh dương đậm chuẩn công vụ
                 font_sign = QFont("Segoe Script", 16, QFont.Weight.Bold)
                 painter.setFont(font_sign)
@@ -573,8 +593,39 @@ class VisualStampGenerator:
                 time_str = signing_time.strftime("%d/%m/%Y %H:%M:%S")
                 painter.drawText(QRectF(sign_box_x, sign_box_y + sign_box_h * 0.6, sign_box_w, sign_box_h * 0.4), Qt.AlignmentFlag.AlignCenter, f"Ký điện tử: {time_str}")
 
+        elif sign_type == "combined":
+            # 2. CHỮ KÝ KẾT HỢP (Điều 13 NĐ 30): Dấu đỏ cơ quan trùm 1/3 chữ ký cá nhân bên trái
+            # Vẽ chữ ký cá nhân (màu xanh)
+            painter.setPen(QColor(30, 64, 175))
+            font_sign = QFont("Segoe Script", 16, QFont.Weight.Bold)
+            painter.setFont(font_sign)
+            painter.drawText(QRectF(sign_box_x, sign_box_y, sign_box_w, sign_box_h * 0.6), Qt.AlignmentFlag.AlignCenter, signer_name)
+
+            font_info = QFont("Times New Roman", 9, QFont.Weight.Normal)
+            font_info.setItalic(True)
+            painter.setFont(font_info)
+            time_str = signing_time.strftime("%d/%m/%Y %H:%M:%S")
+            painter.drawText(QRectF(sign_box_x, sign_box_y + sign_box_h * 0.6, sign_box_w, sign_box_h * 0.4), Qt.AlignmentFlag.AlignCenter, f"Ký bởi: {signer_name}")
+
+            # Tính toán vị trí con dấu đỏ trùm 1/3 chữ ký bên trái (đường kính dấu 36mm)
+            seal_dim = int(36.0 / 25.4 * 300)
+            seal_x = sign_box_x + int(sign_box_w * 0.33) - seal_dim
+            seal_y = sign_box_y + (sign_box_h - seal_dim) // 2
+
+            if custom_image_path and os.path.exists(custom_image_path):
+                pix = QPixmap(custom_image_path)
+                painter.drawPixmap(seal_x, seal_y, seal_dim, seal_dim, pix)
+            else:
+                painter.setPen(QColor(220, 38, 38, 210))  # Đỏ đậm có độ trong suốt nhẹ
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(seal_x, seal_y, seal_dim, seal_dim)
+                font_seal = QFont("Times New Roman", 8, QFont.Weight.Bold)
+                painter.setFont(font_seal)
+                org_text = agency_name or "CƠ QUAN BAN HÀNH"
+                painter.drawText(QRectF(seal_x, seal_y + seal_dim * 0.35, seal_dim, seal_dim * 0.3), Qt.AlignmentFlag.AlignCenter, org_text.upper())
+
         else:
-            # 2. CHỮ KÝ SỐ CƠ QUAN / TỔ CHỨC: Con dấu đỏ trùm 1/3 chữ ký về bên trái
+            # 3. CHỮ KÝ SỐ CƠ QUAN / TỔ CHỨC: Con dấu đỏ
             seal_w = int(min(stamp_width_mm, stamp_height_mm) / 25.4 * 300)
             seal_h = seal_w  # Con dấu tròn tỷ lệ 1:1
             seal_x = sign_box_x

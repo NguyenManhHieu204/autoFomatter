@@ -175,7 +175,7 @@ class HeaderFooterBuilder:
             r_div = p_l_divider.add_run("—————")
         format_run(r_div, size_pt=9.0, bold=True)
 
-        # Cột Trái 4: Số, ký hiệu văn bản
+        # Cột Trái 4: Số, ký hiệu văn bản (NĐ 30 dùng 'Số: .../...', HĐ 36 dùng 'Số ...-.../...')
         p_l_num = cell_left.add_paragraph()
         p_l_num.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_l_num.paragraph_format.space_before = Pt(2)
@@ -183,9 +183,13 @@ class HeaderFooterBuilder:
 
         num_prefix = rules["header"]["doc_number_prefix"]
         if not doc_number:
-            doc_number = f"{num_prefix}..../...."
-        elif not (doc_number.startswith("Số") or doc_number.startswith("số")):
-            doc_number = f"{num_prefix}{doc_number}"
+            if standard_id.upper() == "HD36":
+                doc_number = f"{num_prefix}...-QĐ/..."
+            else:
+                doc_number = f"{num_prefix}.../QĐ-..."
+        else:
+            clean_num = re.sub(r'^(số|so)\s*[:\.]?\s*', '', doc_number.strip(), flags=re.IGNORECASE)
+            doc_number = f"{num_prefix}{clean_num}"
 
         r_num = p_l_num.add_run(doc_number)
         format_run(r_num, size_pt=rules["header"]["doc_number_font_size_pt"], bold=False)

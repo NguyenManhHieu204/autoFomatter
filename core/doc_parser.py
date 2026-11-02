@@ -187,8 +187,11 @@ class DocParser:
                 header_para_count += 1
                 continue
 
-            # Nếu gặp Căn cứ, Điều, hoặc gạch đầu dòng -> Đã vào phần Thân bài, DỪNG QUÉT HEADER!
-            if re.match(r'^[-–—•*]?\s*(căn\s+cứ|can\s+cur|can\s+cu|theo\s+đề\s+nghị|theo\s+de\s+nghi|điều|dieu)\b', text, re.IGNORECASE):
+            # Nếu gặp Căn cứ, Điều, Chương, Đề mục La Mã (I., II.), Số (1., 2.), Chữ cái (a), b)), gạch/cộng đầu dòng -> Đã vào phần Thân bài, DỪNG QUÉT HEADER!
+            if (
+                re.match(r'^[-–—•*+]?\s*(căn\s+cứ|can\s+cur|can\s+cu|theo\s+đề\s+nghị|theo\s+de\s+nghi|điều|dieu|chương|chuong|mục|muc|phần|phan)\b', text, re.IGNORECASE)
+                or re.match(r'^([IVXLCDM]+\.|\d+[\.:]|[a-z]\)|\+)\s+', text, re.IGNORECASE)
+            ):
                 break
 
             if "CỘNG HÒA XÃ HỘI" in text_u or "CONG HOA XA HOI" in text_u:
