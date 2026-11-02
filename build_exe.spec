@@ -58,6 +58,7 @@ hiddenimports = [
     'ui.editor.document_canvas',
     'ui.editor.document_ruler',
     'ui.editor.table_properties_dlg',
+    'ui.editor.metadata_editor_dlg',
     'core.editor_core.openxml_builder',
     'core.editor_core.native_canvas_engine',
     'core.editor_core.table_layout_manager',

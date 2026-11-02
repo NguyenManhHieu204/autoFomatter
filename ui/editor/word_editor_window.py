@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QScrollArea, QSlider, QStatusBar, QMessageBox,
     QFileDialog, QFrame, QApplication
 )
-from PyQt6.QtGui import QIcon, QFont, QColor
+from PyQt6.QtGui import QIcon, QFont, QColor, QShortcut, QKeySequence
 from PyQt6.QtCore import Qt, QSize
 
 from ui.editor.administrative_ribbon import AdministrativeRibbonBar
@@ -180,6 +180,7 @@ class WordEditorWindow(QMainWindow):
         self.ribbon.format_italic_triggered.connect(self.canvas.set_font_italic)
         self.ribbon.format_underline_triggered.connect(self.canvas.set_font_underline)
         self.ribbon.font_size_changed.connect(self.canvas.set_font_size)
+        self.ribbon.font_family_changed.connect(self.canvas.set_font_family)
         self.ribbon.font_color_changed.connect(self.canvas.set_font_color)
 
         self.ribbon.align_left_triggered.connect(lambda: self.canvas.set_alignment(Qt.AlignmentFlag.AlignLeft))
@@ -189,20 +190,44 @@ class WordEditorWindow(QMainWindow):
 
         self.ribbon.line_spacing_changed.connect(self.canvas.set_line_spacing)
         self.ribbon.indent_first_line_triggered.connect(self.canvas.set_first_line_indent)
+        self.ribbon.bullet_list_triggered.connect(self.canvas.insert_bullet_list)
+        self.ribbon.numbered_list_triggered.connect(self.canvas.insert_numbered_list)
         self.ribbon.insert_symbol_requested.connect(self.canvas.insert_symbol)
 
-        # 2. Thao tác Chèn (Insert)
+        # 2. Thao tác Chèn & Bảng biểu
         self.ribbon.insert_table_requested.connect(self._show_insert_table_dialog)
         self.ribbon.insert_image_requested.connect(self.canvas.insert_image)
         self.ribbon.page_break_requested.connect(self.canvas.insert_page_break)
 
+        self.ribbon.table_insert_row_above_triggered.connect(self.canvas.insert_table_row_above)
+        self.ribbon.table_insert_row_below_triggered.connect(self.canvas.insert_table_row_below)
+        self.ribbon.table_delete_row_triggered.connect(self.canvas.delete_table_row)
+        self.ribbon.table_insert_col_left_triggered.connect(self.canvas.insert_table_col_left)
+        self.ribbon.table_insert_col_right_triggered.connect(self.canvas.insert_table_col_right)
+        self.ribbon.table_delete_col_triggered.connect(self.canvas.delete_table_col)
+        self.ribbon.table_merge_cells_triggered.connect(self.canvas.merge_table_cells)
+        self.ribbon.table_split_cell_triggered.connect(self.canvas.split_table_cell)
+
         # 3. Bố cục & Thước kẻ
         self.ribbon.toggle_ruler_triggered.connect(self.ruler_container.setVisible)
+        self.ribbon.page_orientation_changed.connect(self.canvas.set_page_orientation)
+        self.ribbon.margins_preset_triggered.connect(
+            lambda: QMessageBox.information(
+                self, "Căn lề chuẩn NĐ 30/2020",
+                "Trang soạn thảo đang tuân thủ nghiêm ngặt quy định lề in:\n"
+                "- Lề trên: 20 mm\n- Lề dưới: 20 mm\n- Lề trái: 30 mm\n- Lề phải: 15 mm"
+            )
+        )
         self.ribbon.lock_scaffolding_toggled.connect(self.canvas.set_lock_scaffolding)
 
-        # 4. Công cụ thể thức
+        # 4. Công cụ thể thức & Sửa khung
+        self.ribbon.edit_metadata_requested.connect(self.canvas.open_metadata_editor)
         self.ribbon.check_compliance_requested.connect(self._audit_document_compliance)
         self.ribbon.switch_doc_type_requested.connect(self._on_switch_doc_type)
+
+        # Phím tắt F2 để mở sửa thể thức
+        self.shortcut_f2 = QShortcut(QKeySequence("F2"), self)
+        self.shortcut_f2.activated.connect(self.canvas.open_metadata_editor)
 
         # 5. Cập nhật vị trí con trỏ
         self.canvas.cursor_position_changed.connect(self._on_canvas_cursor_moved)

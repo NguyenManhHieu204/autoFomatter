@@ -28,13 +28,14 @@ class QuickWizardDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Tạo nhanh Văn bản Chuẩn Thể thức (Template Wizard)")
-        self.setFixedSize(540, 560)
+        self.resize(640, 680)
+        self.setMinimumSize(560, 560)
         self.wizard_controller = TemplateWizardController()
         self.created_editor_window: Optional[WordEditorWindow] = None
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(14)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setSpacing(10)
 
         # Header giới thiệu
         header_frame = QFrame()
@@ -46,15 +47,29 @@ class QuickWizardDialog(QDialog):
         lbl_desc.setStyleSheet("color: #15803d; font-size: 11.5px; line-height: 1.3;")
         h_layout.addWidget(lbl_title)
         h_layout.addWidget(lbl_desc)
-        layout.addWidget(header_frame)
+        main_layout.addWidget(header_frame)
+
+        # Scroll Area chứa toàn bộ các GroupBox để chống tràn trên màn hình nhỏ/High DPI
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setStyleSheet("background: transparent;")
+
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
+        layout.setContentsMargins(2, 4, 8, 4)
+        layout.setSpacing(12)
 
         # 1. Chọn Quy chuẩn & Hồ sơ cơ quan
         prof_group = QGroupBox("1. Thông tin Cơ quan ban hành")
         prof_layout = QVBoxLayout(prof_group)
+        prof_layout.setSpacing(8)
 
         row_std = QHBoxLayout()
         self.rb_nd30 = QRadioButton("Khối Hành chính Nhà nước (Nghị định 30)")
         self.rb_hd36 = QRadioButton("Khối Cơ quan Đảng (Hướng dẫn 36)")
+        self.rb_nd30.setMinimumHeight(28)
+        self.rb_hd36.setMinimumHeight(28)
         self.rb_nd30.setChecked(True)
         self.rb_nd30.toggled.connect(self._on_standard_changed)
 
@@ -67,8 +82,11 @@ class QuickWizardDialog(QDialog):
         prof_layout.addLayout(row_std)
 
         row_prof = QHBoxLayout()
-        row_prof.addWidget(QLabel("Hồ sơ mẫu:"))
+        lbl_prof = QLabel("Hồ sơ mẫu:")
+        lbl_prof.setMinimumWidth(80)
+        row_prof.addWidget(lbl_prof)
         self.cb_profiles = QComboBox()
+        self.cb_profiles.setMinimumHeight(32)
         self.cb_profiles.currentIndexChanged.connect(self._on_profile_selected)
         row_prof.addWidget(self.cb_profiles, 1)
         prof_layout.addLayout(row_prof)
@@ -78,15 +96,20 @@ class QuickWizardDialog(QDialog):
         # 2. Loại văn bản và Trích yếu
         doc_group = QGroupBox("2. Thể loại & Trích yếu nội dung")
         doc_layout = QVBoxLayout(doc_group)
+        doc_layout.setSpacing(8)
 
         row_type = QHBoxLayout()
-        row_type.addWidget(QLabel("Loại văn bản:"))
+        lbl_t = QLabel("Loại văn bản:")
+        lbl_t.setMinimumWidth(80)
+        row_type.addWidget(lbl_t)
         self.cb_doc_type = QComboBox()
+        self.cb_doc_type.setMinimumHeight(32)
         row_type.addWidget(self.cb_doc_type, 1)
         doc_layout.addLayout(row_type)
 
         doc_layout.addWidget(QLabel("Trích yếu nội dung (Về việc...):"))
         self.txt_subject = QLineEdit()
+        self.txt_subject.setMinimumHeight(32)
         self.txt_subject.setPlaceholderText("Ví dụ: Về việc phê duyệt kế hoạch chuyển đổi số năm 2026")
         doc_layout.addWidget(self.txt_subject)
 
@@ -95,45 +118,54 @@ class QuickWizardDialog(QDialog):
         # 3. Thông tin người ký và địa danh
         sign_group = QGroupBox("3. Thẩm quyền ký & Địa danh")
         sign_layout = QVBoxLayout(sign_group)
+        sign_layout.setSpacing(8)
 
         row_signer = QHBoxLayout()
         row_signer.addWidget(QLabel("Chức vụ:"))
         self.txt_position = QLineEdit()
+        self.txt_position.setMinimumHeight(32)
         row_signer.addWidget(self.txt_position, 1)
 
         row_signer.addWidget(QLabel("Họ tên:"))
         self.txt_signer_name = QLineEdit()
+        self.txt_signer_name.setMinimumHeight(32)
         row_signer.addWidget(self.txt_signer_name, 1)
         sign_layout.addLayout(row_signer)
 
         row_loc = QHBoxLayout()
         row_loc.addWidget(QLabel("Địa danh ban hành:"))
         self.txt_location = QLineEdit()
+        self.txt_location.setMinimumHeight(32)
         self.txt_location.setText("Hà Nội")
         row_loc.addWidget(self.txt_location, 1)
         sign_layout.addLayout(row_loc)
 
         layout.addWidget(sign_group)
 
+        scroll_area.setWidget(scroll_content)
+        main_layout.addWidget(scroll_area, 1)
+
         # Nút Tạo văn bản
         btn_layout = QHBoxLayout()
         self.btn_cancel = QPushButton("Hủy bỏ")
+        self.btn_cancel.setMinimumHeight(34)
         self.btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(self.btn_cancel)
 
         self.btn_create = QPushButton("KHỞI TẠO & MỞ SOẠN THẢO NGAY")
         self.btn_create.setIcon(get_ui_icon("file_word"))
+        self.btn_create.setMinimumHeight(34)
         self.btn_create.setStyleSheet("""
             QPushButton {
                 background-color: #16a34a; color: white; font-weight: bold;
-                padding: 9px 18px; border-radius: 5px; font-size: 12.5px;
+                padding: 9px 22px; border-radius: 6px; font-size: 12.5px;
             }
             QPushButton:hover { background-color: #15803d; }
         """)
         self.btn_create.clicked.connect(self._create_and_open_editor)
         btn_layout.addWidget(self.btn_create)
 
-        layout.addLayout(btn_layout)
+        main_layout.addLayout(btn_layout)
 
         # Nạp dữ liệu ban đầu
         self._refresh_profiles_list()

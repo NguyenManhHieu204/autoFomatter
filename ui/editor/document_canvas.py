@@ -1,13 +1,14 @@
 """
 ui/editor/document_canvas.py: Khung vẽ Soạn thảo A4 Trực quan (WYSIWYG Document Canvas)
-- Kết xuất trang in A4 chuẩn (210 x 297 mm) với đổ bóng (Drop Shadow) chân thực
+- Kết xuất trang in A4 chuẩn (210 x 297 mm) với đổ bóng chân thực
 - Hiển thị ranh giới lề in NĐ 30 (Trên 20mm, Dưới 20mm, Trái 30mm, Phải 15mm)
-- Phân tách 4 vùng rõ rệt:
-  + Vùng 1: Header Quốc hiệu - Tên cơ quan (Khóa cấu trúc)
+- Phân tách 4 vùng:
+  + Vùng 1: Header Quốc hiệu - Tên cơ quan (Cho phép click đúp hoặc nhấn nút để sửa nhanh)
   + Vùng 2: Tiêu đề Loại văn bản & Trích yếu
-  + Vùng 3: Thân văn bản (Body - Toàn quyền soạn thảo như Word)
-  + Vùng 4: Footer Nơi nhận & Chữ ký (Khóa cấu trúc)
-- Tích hợp công cụ chỉnh sửa văn bản phong phú (QTextEdit rich-text engine)
+  + Vùng 3: Thân văn bản (Body - Toàn quyền soạn thảo rich-text, danh sách, bảng biểu)
+  + Vùng 4: Footer Nơi nhận & Chữ ký
+- Hỗ trợ thao tác Bảng biểu toàn diện: Thêm/Xóa Hàng, Thêm/Xóa Cột, Trộn ô, Menu chuột phải
+- Hiển thị ranh giới ngắt trang rõ ràng, trực quan
 """
 
 import os
@@ -15,14 +16,17 @@ import re
 from typing import Dict, Any, Optional, List
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel,
-    QFrame, QScrollArea, QSizePolicy, QMessageBox, QFileDialog
+    QFrame, QScrollArea, QSizePolicy, QMessageBox, QFileDialog,
+    QPushButton, QMenu
 )
 from PyQt6.QtGui import (
     QPainter, QColor, QFont, QTextCursor, QTextCharFormat,
     QTextBlockFormat, QTextDocument, QPixmap, QTextTableFormat,
-    QTextLength
+    QTextLength, QTextListFormat, QAction
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QSize, QMarginsF
+
+from ui.icon_factory import get_ui_icon
 
 
 class DocumentCanvas(QWidget):
@@ -38,6 +42,7 @@ class DocumentCanvas(QWidget):
         super().__init__(parent)
         self.zoom = 1.0
         self.lock_scaffolding = True
+        self.orientation = "portrait"
         self.metadata: Dict[str, Any] = {
             "standard_id": "ND30",
             "superior_agency": "ỦY BAN NHÂN DÂN",
@@ -56,7 +61,29 @@ class DocumentCanvas(QWidget):
         # Bố cục trang giấy A4 trung tâm
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.setContentsMargins(40, 30, 40, 30)
+        main_layout.setContentsMargins(40, 20, 40, 30)
+        main_layout.setSpacing(10)
+
+        # Thanh tiện ích sửa nhanh thể thức nằm ngay phía trên trang giấy
+        top_ctrl_bar = QHBoxLayout()
+        top_ctrl_bar.addStretch()
+
+        self.btn_edit_meta = QPushButton("✏️ Chỉnh sửa Thông tin Thể thức (Cơ quan, Địa danh, Nơi nhận, Ký tên... [F2])")
+        self.btn_edit_meta.setIcon(get_ui_icon("edit"))
+        self.btn_edit_meta.setStyleSheet("""
+            QPushButton {
+                background-color: #eff6ff; color: #1e40af; font-weight: bold;
+                border: 1px solid #bfdbfe; border-radius: 5px;
+                padding: 6px 14px; font-size: 11.5px;
+            }
+            QPushButton:hover { background-color: #dbeafe; border-color: #3b82f6; }
+        """)
+        self.btn_edit_meta.setToolTip("Mở hộp thoại chỉnh sửa toàn bộ các trường thông tin thể thức pháp lý (Phím tắt F2)")
+        self.btn_edit_meta.clicked.connect(self.open_metadata_editor)
+        top_ctrl_bar.addWidget(self.btn_edit_meta)
+        top_ctrl_bar.addStretch()
+
+        main_layout.addLayout(top_ctrl_bar)
 
         # Trang giấy A4 (Page Sheet Card)
         self.page_sheet = QWidget()
@@ -77,6 +104,9 @@ class DocumentCanvas(QWidget):
 
         # 1. KHUNG HEADER THỂ THỨC (QUỐC HIỆU & CƠ QUAN)
         self.header_frame = QFrame()
+        self.header_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.header_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Cơ quan, Quốc hiệu, Số hiệu, Địa danh...")
+        self.header_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         self.header_frame.setStyleSheet("""
             QFrame {
                 background-color: #f8fafc;
@@ -102,6 +132,9 @@ class DocumentCanvas(QWidget):
 
         # 2. KHUNG TIÊU ĐỀ LOẠI VĂN BẢN VÀ TRÍCH YẾU
         self.title_frame = QFrame()
+        self.title_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Loại văn bản và Trích yếu...")
+        self.title_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         title_layout = QVBoxLayout(self.title_frame)
         title_layout.setContentsMargins(0, 8, 0, 8)
         title_layout.setSpacing(2)
@@ -133,10 +166,15 @@ class DocumentCanvas(QWidget):
         """)
         self.body_editor.textChanged.connect(self.document_modified.emit)
         self.body_editor.cursorPositionChanged.connect(self._on_cursor_changed)
+        self.body_editor.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.body_editor.customContextMenuRequested.connect(self._show_body_context_menu)
         sheet_layout.addWidget(self.body_editor, 1)
 
         # 4. KHUNG FOOTER THỂ THỨC (NƠI NHẬN & CHỮ KÝ)
         self.footer_frame = QFrame()
+        self.footer_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.footer_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Nơi nhận và Khối ký ban hành...")
+        self.footer_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         self.footer_frame.setStyleSheet("""
             QFrame {
                 background-color: #f8fafc;
@@ -167,9 +205,17 @@ class DocumentCanvas(QWidget):
 
     def set_zoom(self, zoom: float):
         self.zoom = max(0.4, min(2.5, zoom))
-        new_w = int(self.A4_WIDTH_PX * self.zoom)
-        new_h = int(self.A4_HEIGHT_PX * self.zoom)
+        base_w = self.A4_HEIGHT_PX if self.orientation == "landscape" else self.A4_WIDTH_PX
+        base_h = self.A4_WIDTH_PX if self.orientation == "landscape" else self.A4_HEIGHT_PX
+        new_w = int(base_w * self.zoom)
+        new_h = int(base_h * self.zoom)
         self.page_sheet.setFixedSize(new_w, new_h)
+
+    def set_page_orientation(self, orientation: str):
+        self.orientation = orientation
+        base_w = self.A4_HEIGHT_PX if self.orientation == "landscape" else self.A4_WIDTH_PX
+        base_h = self.A4_WIDTH_PX if self.orientation == "landscape" else self.A4_HEIGHT_PX
+        self.page_sheet.setFixedSize(int(base_w * self.zoom), int(base_h * self.zoom))
 
     def set_lock_scaffolding(self, locked: bool):
         self.lock_scaffolding = locked
@@ -178,6 +224,14 @@ class DocumentCanvas(QWidget):
         qss = f"QFrame {{ background-color: {bg_style} border: {border_style} border-radius: 4px; padding: 4px; }}"
         self.header_frame.setStyleSheet(qss)
         self.footer_frame.setStyleSheet(qss)
+
+    def open_metadata_editor(self):
+        """Mở hộp thoại chỉnh sửa thể thức văn bản"""
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+        dlg = MetadataEditorDialog(self, metadata=self.metadata)
+        if dlg.exec():
+            self.set_metadata(dlg.get_metadata())
+            self.document_modified.emit()
 
     def set_metadata(self, meta: Dict[str, Any]):
         self.metadata.update(meta)
@@ -235,8 +289,10 @@ class DocumentCanvas(QWidget):
         name = self.metadata.get("signer_name", "Nguyễn Văn A")
 
         html_fr = "<div style='text-align: center; font-size: 12pt; line-height: 1.25;'>"
-        html_fr += f"<div style='font-weight: bold;'>{auth}</div>"
-        html_fr += f"<div style='font-weight: bold;'>{pos}</div>"
+        if auth:
+            html_fr += f"<div style='font-weight: bold;'>{auth}</div>"
+        if pos:
+            html_fr += f"<div style='font-weight: bold;'>{pos}</div>"
         html_fr += "<div style='height: 48px;'>&nbsp;<br/>&nbsp;</div>"  # Khoảng trống ký
         html_fr += f"<div style='font-weight: bold; font-size: 12.5pt;'>{name}</div>"
         html_fr += "</div>"
@@ -259,6 +315,53 @@ class DocumentCanvas(QWidget):
         col = cursor.positionInBlock() + 1
         self.cursor_position_changed.emit(line, col)
 
+    # ==================== MENU CHUỘT PHẢI (CONTEXT MENU) ====================
+    def _show_body_context_menu(self, pos):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        menu = self.body_editor.createStandardContextMenu()
+
+        if table:
+            menu.addSeparator()
+            tbl_menu = menu.addMenu(get_ui_icon("table"), "Bảng biểu (Table Actions)")
+
+            act_row_above = tbl_menu.addAction("➕ Thêm hàng phía trên")
+            act_row_above.triggered.connect(self.insert_table_row_above)
+
+            act_row_below = tbl_menu.addAction("➕ Thêm hàng phía dưới")
+            act_row_below.triggered.connect(self.insert_table_row_below)
+
+            act_del_row = tbl_menu.addAction("❌ Xóa hàng hiện tại")
+            act_del_row.triggered.connect(self.delete_table_row)
+
+            tbl_menu.addSeparator()
+
+            act_col_left = tbl_menu.addAction("➕ Thêm cột bên trái")
+            act_col_left.triggered.connect(self.insert_table_col_left)
+
+            act_col_right = tbl_menu.addAction("➕ Thêm cột bên phải")
+            act_col_right.triggered.connect(self.insert_table_col_right)
+
+            act_del_col = tbl_menu.addAction("❌ Xóa cột hiện tại")
+            act_del_col.triggered.connect(self.delete_table_col)
+
+            tbl_menu.addSeparator()
+
+            act_merge = tbl_menu.addAction("🔲 Trộn các ô đang chọn")
+            act_merge.triggered.connect(self.merge_table_cells)
+
+            act_split = tbl_menu.addAction("✂ Tách ô")
+            act_split.triggered.connect(self.split_table_cell)
+
+            act_del_tbl = tbl_menu.addAction("🗑️ Xóa toàn bộ bảng")
+            act_del_tbl.triggered.connect(self.delete_current_table)
+
+        menu.addSeparator()
+        act_meta = menu.addAction(get_ui_icon("edit"), "✏️ Sửa Thông tin Thể thức (F2)...")
+        act_meta.triggered.connect(self.open_metadata_editor)
+
+        menu.exec(self.body_editor.mapToGlobal(pos))
+
     # ==================== ĐIỀU KHIỂN ĐỊNH DẠNG TỪ RIBBON ====================
     def set_font_bold(self):
         cursor = self.body_editor.textCursor()
@@ -279,6 +382,12 @@ class DocumentCanvas(QWidget):
         fmt.setFontUnderline(not fmt.fontUnderline())
         cursor.mergeCharFormat(fmt)
 
+    def set_font_family(self, font_name: str):
+        cursor = self.body_editor.textCursor()
+        fmt = cursor.charFormat()
+        fmt.setFontFamily(font_name)
+        cursor.mergeCharFormat(fmt)
+
     def set_font_size(self, size_pt: float):
         cursor = self.body_editor.textCursor()
         fmt = cursor.charFormat()
@@ -297,21 +406,41 @@ class DocumentCanvas(QWidget):
     def set_line_spacing(self, spacing_val: float):
         cursor = self.body_editor.textCursor()
         block_fmt = cursor.blockFormat()
-        block_fmt.setLineHeight(int(spacing_val * 100), 2)  # ProportionalHeight
+        block_fmt.setLineHeight(int(spacing_val * 100), QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
         cursor.setBlockFormat(block_fmt)
 
     def set_first_line_indent(self, mm: float = 12.7):
         cursor = self.body_editor.textCursor()
         block_fmt = cursor.blockFormat()
-        # 1mm ~ 3.78px tại 96 DPI
         px = int(mm * 3.7795)
         block_fmt.setTextIndent(px)
         cursor.setBlockFormat(block_fmt)
 
+    def insert_bullet_list(self):
+        cursor = self.body_editor.textCursor()
+        list_fmt = QTextListFormat()
+        list_fmt.setStyle(QTextListFormat.Style.ListDisc)
+        list_fmt.setIndent(1)
+        cursor.createList(list_fmt)
+        self.body_editor.setTextCursor(cursor)
+        self.document_modified.emit()
+
+    def insert_numbered_list(self):
+        cursor = self.body_editor.textCursor()
+        list_fmt = QTextListFormat()
+        list_fmt.setStyle(QTextListFormat.Style.ListDecimal)
+        list_fmt.setIndent(1)
+        cursor.createList(list_fmt)
+        self.body_editor.setTextCursor(cursor)
+        self.document_modified.emit()
+
     def insert_symbol(self, sym: str):
         cursor = self.body_editor.textCursor()
         cursor.insertText(sym)
+        self.body_editor.setTextCursor(cursor)
+        self.document_modified.emit()
 
+    # ==================== THAO TÁC BẢNG BIỂU (TABLE ACTIONS) ====================
     def insert_table(self, rows: int, cols: int, border_type: str = "grid"):
         cursor = self.body_editor.textCursor()
         tbl_fmt = QTextTableFormat()
@@ -322,7 +451,110 @@ class DocumentCanvas(QWidget):
         tbl_fmt.setBorderStyle(QTextTableFormat.BorderStyle.BorderStyle_Solid)
         tbl_fmt.setBorderBrush(QColor("#000000"))
         tbl_fmt.setWidth(QTextLength(QTextLength.Type.PercentageLength, 100))
-        cursor.insertTable(rows, cols, tbl_fmt)
+        tbl = cursor.insertTable(rows, cols, tbl_fmt)
+        self.body_editor.setTextCursor(cursor)
+        self.document_modified.emit()
+        return tbl
+
+    def insert_table_row_above(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cell = table.cellAt(cursor)
+            table.insertRows(cell.row(), 1)
+            new_cell = table.cellAt(cell.row(), cell.column())
+            if new_cell.isValid():
+                self.body_editor.setTextCursor(new_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def insert_table_row_below(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cell = table.cellAt(cursor)
+            table.insertRows(cell.row() + 1, 1)
+            new_cell = table.cellAt(cell.row() + 1, cell.column())
+            if new_cell.isValid():
+                self.body_editor.setTextCursor(new_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def delete_table_row(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            if table.rows() <= 1:
+                QMessageBox.warning(self, "Không thể xóa", "Bảng phải có ít nhất 1 hàng!")
+                return
+            cell = table.cellAt(cursor)
+            row_idx = cell.row()
+            safe_row = row_idx - 1 if row_idx > 0 else (row_idx + 1 if row_idx + 1 < table.rows() else 0)
+            safe_cell = table.cellAt(safe_row, cell.column())
+            table.removeRows(row_idx, 1)
+            if safe_cell.isValid():
+                self.body_editor.setTextCursor(safe_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def insert_table_col_left(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cell = table.cellAt(cursor)
+            table.insertColumns(cell.column(), 1)
+            new_cell = table.cellAt(cell.row(), cell.column())
+            if new_cell.isValid():
+                self.body_editor.setTextCursor(new_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def insert_table_col_right(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cell = table.cellAt(cursor)
+            table.insertColumns(cell.column() + 1, 1)
+            new_cell = table.cellAt(cell.row(), cell.column() + 1)
+            if new_cell.isValid():
+                self.body_editor.setTextCursor(new_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def delete_table_col(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            if table.columns() <= 1:
+                QMessageBox.warning(self, "Không thể xóa", "Bảng phải có ít nhất 1 cột!")
+                return
+            cell = table.cellAt(cursor)
+            col_idx = cell.column()
+            safe_col = col_idx - 1 if col_idx > 0 else (col_idx + 1 if col_idx + 1 < table.columns() else 0)
+            safe_cell = table.cellAt(cell.row(), safe_col)
+            table.removeColumns(col_idx, 1)
+            if safe_cell.isValid():
+                self.body_editor.setTextCursor(safe_cell.firstCursorPosition())
+            self.document_modified.emit()
+
+    def merge_table_cells(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            table.mergeCells(cursor)
+            self.document_modified.emit()
+
+    def split_table_cell(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cell = table.cellAt(cursor)
+            table.splitCell(cell.row(), cell.column(), 1, 1)
+            self.document_modified.emit()
+
+    def delete_current_table(self):
+        cursor = self.body_editor.textCursor()
+        table = cursor.currentTable()
+        if table:
+            cursor.setPosition(table.firstPosition() - 1)
+            cursor.setPosition(table.lastPosition() + 1, QTextCursor.MoveMode.KeepAnchor)
+            cursor.removeSelectedText()
+            self.document_modified.emit()
 
     def insert_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -331,15 +563,26 @@ class DocumentCanvas(QWidget):
         if file_path:
             cursor = self.body_editor.textCursor()
             img = QPixmap(file_path)
-            # Giới hạn chiều rộng ảnh không vượt quá bề rộng trang soạn thảo
             max_w = self.page_sheet.width() - 170
             if img.width() > max_w:
                 img = img.scaledToWidth(max_w, Qt.TransformationMode.SmoothTransformation)
             cursor.insertImage(img.toImage())
+            self.body_editor.setTextCursor(cursor)
+            self.document_modified.emit()
 
     def insert_page_break(self):
         cursor = self.body_editor.textCursor()
-        cursor.insertHtml("<div style='page-break-before: always; margin-top: 20px; border-top: 1px dashed #94a3b8;'></div><br/>")
+        page_break_html = """
+        <div style='margin: 22px 0; text-align: center; border-top: 2px dashed #2563eb; border-bottom: 2px dashed #2563eb; padding: 6px 0; background-color: #eff6ff;'>
+            <span style='color: #1d4ed8; font-weight: bold; font-size: 11pt; font-family: Segoe UI, Arial, sans-serif;'>
+                📄 —————————————————— NGẮT TRANG (PAGE BREAK) ——————————————————
+            </span>
+        </div>
+        <p style='text-indent: 36px;'><br/></p>
+        """
+        cursor.insertHtml(page_break_html)
+        self.body_editor.setTextCursor(cursor)
+        self.document_modified.emit()
 
     def get_body_paragraphs(self) -> List[str]:
         """Trích xuất danh sách các đoạn văn bản trong Body để chuyển giao sang OpenXmlBuilder"""

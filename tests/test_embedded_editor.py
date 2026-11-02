@@ -156,6 +156,76 @@ class TestEmbeddedEditor(unittest.TestCase):
         )
         self.assertTrue(os.path.exists(out_file))
 
+    # ==================== 5. KIỂM THỬ CANVAS & THAO TÁC BẢNG BIỂU ====================
+    def test_canvas_table_and_metadata_editing(self):
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        
+        from ui.editor.document_canvas import DocumentCanvas
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+        from ui.editor.table_properties_dlg import TablePropertiesDialog
+
+        canvas = DocumentCanvas()
+        
+        # 1. Kiểm tra cập nhật Thể thức
+        new_meta = {
+            "standard_id": "HD36",
+            "superior_agency": "TỈNH ỦY ĐẮK NÔNG",
+            "issuing_agency": "ĐẢNG BỘ XÃ THUẬN HẠNH",
+            "doc_number": "Số 16-QĐ/ĐU",
+            "location": "Thuận Hạnh",
+            "date_str": "Thuận Hạnh, ngày 02 tháng 11 năm 2026",
+            "doc_type": "QUYẾT ĐỊNH",
+            "doc_subject": "Phân công các đồng chí Ủy viên BCH Đảng bộ xã",
+            "recipients": ["- Như Điều 3;", "- BTV Tỉnh ủy (b/c);", "- Lưu: VP."],
+            "authority_prefix": "T/M BAN THƯỜNG VỤ",
+            "signer_position": "BÍ THƯ",
+            "signer_name": "K'Thanh"
+        }
+        canvas.set_metadata(new_meta)
+        self.assertIn("ĐẢNG BỘ XÃ THUẬN HẠNH", canvas.lbl_header_left.text())
+        self.assertIn("ĐẢNG CỘNG SẢN VIỆT NAM", canvas.lbl_header_right.text())
+        self.assertIn("Thuận Hạnh, ngày 02 tháng 11 năm 2026", canvas.lbl_header_right.text())
+        self.assertIn("K'Thanh", canvas.lbl_footer_right.text())
+
+        # 2. Kiểm tra thao tác Bảng biểu (Thêm/Xóa Hàng/Cột)
+        canvas.insert_table(rows=3, cols=3, border_type="grid")
+        cur = canvas.body_editor.textCursor()
+        tbl = cur.currentTable()
+        self.assertIsNotNone(tbl)
+        self.assertEqual(tbl.rows(), 3)
+        self.assertEqual(tbl.columns(), 3)
+
+        # Thêm hàng dưới
+        canvas.insert_table_row_below()
+        self.assertEqual(tbl.rows(), 4)
+
+        # Xóa hàng
+        canvas.delete_table_row()
+        self.assertEqual(tbl.rows(), 3)
+
+        # Thêm cột phải
+        canvas.insert_table_col_right()
+        self.assertEqual(tbl.columns(), 4)
+
+        # Xóa cột
+        canvas.delete_table_col()
+        self.assertEqual(tbl.columns(), 3)
+
+        # 3. Kiểm tra danh sách & ngắt trang
+        canvas.insert_bullet_list()
+        canvas.insert_numbered_list()
+        canvas.insert_page_break()
+        self.assertIn("NGẮT TRANG", canvas.body_editor.toHtml())
+
+        # 4. Kiểm tra hộp thoại cấu hình bảng
+        dlg_tbl = TablePropertiesDialog()
+        cfg = dlg_tbl.get_table_config()
+        self.assertIn("rows", cfg)
+        self.assertIn("cols", cfg)
+        self.assertIn("border_type", cfg)
+        dlg_tbl.close()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -117,17 +117,53 @@ QPushButton#btnRun:hover {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #15803d, stop:1 #166534);
 }
 
-/* Input Fields */
-QLineEdit, QComboBox {
+/* Input Fields & Controls */
+QLineEdit, QComboBox, QSpinBox {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
-    padding: 6px 10px;
+    padding: 4px 8px;
+    min-height: 26px;
     color: #0f172a;
+    font-size: 13px;
 }
 
-QLineEdit:focus, QComboBox:focus {
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
     border-color: #2563eb;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 22px;
+    border-left: 1px solid #cbd5e1;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    selection-background-color: #2563eb;
+    selection-color: #ffffff;
+    padding: 4px;
+}
+
+QSpinBox {
+    padding-right: 18px;
+}
+
+QRadioButton, QCheckBox {
+    spacing: 8px;
+    font-size: 13px;
+    color: #1e293b;
+    min-height: 22px;
+}
+
+QRadioButton::indicator, QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
 }
 
 /* Table Widget */
