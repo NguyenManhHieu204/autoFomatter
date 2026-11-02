@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QAbstractScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QSize
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QFont, QColor, QPixmap
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QFont, QColor, QPixmap, QAction
 
 from core.formatter_engine import FormatterEngine, FormattingReport
 from core.win32_helper import Win32WordHelper
@@ -220,9 +220,9 @@ class DropZoneWidget(QFrame):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Auto-Formatter 1.0 - Chuẩn hóa Thể thức Văn bản Đảng & Hành chính")
-        self.resize(1180, 780)
-        self.setMinimumSize(960, 600)
+        self.setWindowTitle("Auto-Formatter 1.2 — Chuẩn Hóa Thể Thức & Soạn Thảo Văn Bản Tích Hợp (NĐ 30 & HD 36)")
+        self.resize(1200, 800)
+        self.setMinimumSize(980, 640)
         self.setStyleSheet(MAIN_STYLE)
 
         icon_path = get_app_icon_path()
@@ -242,23 +242,208 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._refresh_profiles_dropdown()
 
-    def _load_profiles_data(self):
-        p_path = os.path.join(self.config_dir, "agency_profiles.json")
-        if os.path.exists(p_path):
-            try:
-                with open(p_path, "r", encoding="utf-8") as f:
-                    self.profiles_data = json.load(f)
-            except Exception:
-                self.profiles_data = {"profiles": []}
-        else:
-            self.profiles_data = {"profiles": []}
+    def _get_selected_standard(self) -> str:
+        """Lấy chuẩn thể thức đang chọn: 'HD36' (Đảng) hoặc 'ND30' (Nhà nước)"""
+        return "HD36" if hasattr(self, "rb_hd36") and self.rb_hd36.isChecked() else "ND30"
+
+    def _setup_menu_bar(self):
+        """Khởi tạo thanh Menu Bar tiện ích ở đầu ứng dụng"""
+        menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                font-size: 12px;
+                padding: 3px 6px;
+                border-bottom: 1px solid #334155;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                padding: 4px 12px;
+                border-radius: 4px;
+            }
+            QMenuBar::item:selected {
+                background-color: #334155;
+                color: #ffffff;
+            }
+            QMenu {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 26px 6px 12px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #2563eb;
+                color: #ffffff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #334155;
+                margin: 4px 6px;
+            }
+        """)
+
+        # 1. Menu Tệp
+        menu_file = menubar.addMenu("📁 Tệp")
+        act_new = menu_file.addAction(get_ui_icon("file_word"), "Soạn thảo văn bản mới...")
+        act_new.setShortcut("Ctrl+N")
+        act_new.triggered.connect(self._open_quick_wizard)
+
+        act_add_file = menu_file.addAction(get_ui_icon("file_add"), "Thêm tệp dự thảo...")
+        act_add_file.setShortcut("Ctrl+O")
+        act_add_file.triggered.connect(self._choose_files_dialog)
+
+        act_add_folder = menu_file.addAction(get_ui_icon("folder_add"), "Thêm thư mục...")
+        act_add_folder.triggered.connect(self._choose_folder_dialog)
+
+        menu_file.addSeparator()
+        act_exit = menu_file.addAction("Thoát ứng dụng")
+        act_exit.setShortcut("Alt+F4")
+        act_exit.triggered.connect(self.close)
+
+        # 2. Menu Soạn thảo
+        menu_edit = menubar.addMenu("📝 Soạn thảo")
+        act_wiz = menu_edit.addAction(get_ui_icon("file_word"), "Khởi tạo nhanh từ mẫu chuẩn (Template Wizard)...")
+        act_wiz.setShortcut("Ctrl+Shift+N")
+        act_wiz.triggered.connect(self._open_quick_wizard)
+
+        act_emb = menu_edit.addAction(get_ui_icon("edit"), "Trình soạn thảo văn bản tích hợp WYSIWYG...")
+        act_emb.setShortcut("F4")
+        act_emb.triggered.connect(self._open_in_embedded_editor)
+
+        # 3. Menu Công cụ
+        menu_tools = menubar.addMenu("🛠️ Công cụ")
+        act_sign = menu_tools.addAction(get_ui_icon("signature"), "Ký số điện tử (Nghị định 30)...")
+        act_sign.setShortcut("Ctrl+K")
+        act_sign.triggered.connect(self._open_signature_dialog)
+
+        act_prof = menu_tools.addAction(get_ui_icon("settings"), "Quản lý Hồ sơ Cơ quan & Đơn vị...")
+        act_prof.triggered.connect(self._open_profile_dialog)
+
+        act_ocr = menu_tools.addAction(get_ui_icon("table"), "Nhận dạng lại bảng biểu (Table OCR)...")
+        act_ocr.triggered.connect(self._run_ocr_on_selected_file)
+
+        # 4. Menu Trợ giúp
+        menu_help = menubar.addMenu("❓ Trợ giúp")
+        act_about = menu_help.addAction(get_ui_icon("info"), "Thông tin phiên bản Auto-Formatter v1.2")
+        act_about.triggered.connect(self._show_about_dialog)
+
+    def _create_top_banner(self) -> QFrame:
+        """Tạo thanh Banner tác vụ nhanh đầu trang nổi bật tuyệt đối"""
+        top_bar = QFrame()
+        top_bar.setObjectName("topBannerBar")
+        top_bar.setStyleSheet("""
+            QFrame#topBannerBar {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0f172a, stop:0.5 #1e293b, stop:1 #0f172a);
+                border-radius: 8px;
+                padding: 6px 14px;
+                border: 1px solid #334155;
+            }
+        """)
+        top_layout = QHBoxLayout(top_bar)
+        top_layout.setContentsMargins(12, 6, 12, 6)
+        top_layout.setSpacing(12)
+
+        # Nhãn tiêu đề hệ thống
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
+        lbl_brand = QLabel("AUTO-FORMATTER v1.2 • SOẠN THẢO & CHUẨN HÓA THỂ THỨC")
+        lbl_brand.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 13px; letter-spacing: 0.5px;")
+        lbl_desc = QLabel("Phân hệ Soạn thảo Tích hợp WYSIWYG • Khóa khung NĐ 30 & HD 36 • Ký số Ban Cơ yếu")
+        lbl_desc.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        title_box.addWidget(lbl_brand)
+        title_box.addWidget(lbl_desc)
+        top_layout.addLayout(title_box)
+
+        top_layout.addStretch()
+
+        # Nút Tạo nhanh văn bản mới (Màu xanh ngọc Emerald)
+        self.btn_top_quick_create = QPushButton("  ➕ Soạn thảo văn bản mới")
+        self.btn_top_quick_create.setIcon(get_ui_icon("file_word"))
+        self.btn_top_quick_create.setIconSize(QSize(18, 18))
+        self.btn_top_quick_create.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_top_quick_create.setStyleSheet("""
+            QPushButton {
+                background-color: #059669; color: white; font-weight: bold;
+                padding: 8px 18px; border-radius: 6px; border: none; font-size: 12px;
+            }
+            QPushButton:hover { background-color: #047857; }
+            QPushButton:pressed { background-color: #065f46; }
+        """)
+        self.btn_top_quick_create.setToolTip("Khởi tạo văn bản mới với khung thể thức chuẩn theo Nghị định 30 hoặc Hướng dẫn 36 (Ctrl+N)")
+        self.btn_top_quick_create.clicked.connect(self._open_quick_wizard)
+        top_layout.addWidget(self.btn_top_quick_create)
+
+        # Nút Mở Trình Soạn Thảo WYSIWYG Tích Hợp (Màu xanh lam Sky)
+        self.btn_top_open_editor = QPushButton("  📝 Trình Soạn Thảo Tích Hợp")
+        self.btn_top_open_editor.setIcon(get_ui_icon("edit"))
+        self.btn_top_open_editor.setIconSize(QSize(18, 18))
+        self.btn_top_open_editor.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_top_open_editor.setStyleSheet("""
+            QPushButton {
+                background-color: #0284c7; color: white; font-weight: bold;
+                padding: 8px 18px; border-radius: 6px; border: none; font-size: 12px;
+            }
+            QPushButton:hover { background-color: #0369a1; }
+            QPushButton:pressed { background-color: #075985; }
+        """)
+        self.btn_top_open_editor.setToolTip("Mở không gian soạn thảo văn bản A4 trực quan với đầy đủ Ribbon, Thước căn lề và Khóa khung (F4)")
+        self.btn_top_open_editor.clicked.connect(self._open_in_embedded_editor)
+        top_layout.addWidget(self.btn_top_open_editor)
+
+        # Nút Ký số điện tử (Màu tím Indigo)
+        self.btn_top_sign = QPushButton("  🔏 Ký số điện tử")
+        self.btn_top_sign.setIcon(get_ui_icon("signature"))
+        self.btn_top_sign.setIconSize(QSize(18, 18))
+        self.btn_top_sign.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_top_sign.setStyleSheet("""
+            QPushButton {
+                background-color: #6366f1; color: white; font-weight: bold;
+                padding: 8px 16px; border-radius: 6px; border: none; font-size: 12px;
+            }
+            QPushButton:hover { background-color: #4f46e5; }
+            QPushButton:pressed { background-color: #4338ca; }
+        """)
+        self.btn_top_sign.setToolTip("Ký số điện tử văn bản PDF chuẩn Nghị định 30/2020/NĐ-CP (Ctrl+K)")
+        self.btn_top_sign.clicked.connect(self._open_signature_dialog)
+        top_layout.addWidget(self.btn_top_sign)
+
+        return top_bar
+
+    def _show_about_dialog(self):
+        """Hiển thị hộp thoại giới thiệu phiên bản 1.2"""
+        QMessageBox.about(
+            self,
+            "Về Auto-Formatter v1.2",
+            "<h3>Auto-Formatter v1.2 — Soạn Thảo & Chuẩn Hóa Thể Thức Văn Bản</h3>"
+            "<p><b>Phân hệ Tạo nhanh & Soạn thảo Văn bản Tích hợp (Offline WYSIWYG):</b></p>"
+            "<ul>"
+            "<li><b>Khóa cứng Thể thức (Layout Guard):</b> Tự động bảo vệ Quốc hiệu, Tiêu ngữ, Tên cơ quan, Khối ký tên theo NĐ 30/2020 và HĐ 36-HD/VPTW.</li>"
+            "<li><b>Thước căn lề milimét (A4 Ruler):</b> Lề chuẩn Trái 30mm, Phải 15mm, Trên 20mm, Dưới 20mm, Thụt dòng 1.27cm.</li>"
+            "<li><b>Administrative Ribbon Bar:</b> 4 tab nghiệp vụ Home, Insert, Page Layout, Admin Tools.</li>"
+            "<li><b>Bảng biểu hành chính:</b> Lặp tiêu đề (tblHeader) và chống gãy trang ngang dòng (cantSplit).</li>"
+            "<li><b>Ký số điện tử:</b> Tuân thủ quy chuẩn Thông tư 41/2017/TT-BTTTT và Ban Cơ yếu Chính phủ.</li>"
+            "</ul>"
+            "<p><i>Bản quyền © 2026 Auto-Formatter Team. Hoạt động ngoại tuyến 100% bảo mật.</i></p>"
+        )
 
     def _init_ui(self):
+        self._setup_menu_bar()
+
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setContentsMargins(14, 10, 14, 14)
         main_layout.setSpacing(10)
+
+        # Thanh tác vụ nhanh đầu trang (Top Action Bar)
+        top_bar = self._create_top_banner()
+        main_layout.addWidget(top_bar)
 
         # Splitter chia đôi màn hình: Trái (Đầu vào & Cấu hình) - Phải (Kết quả & Cảnh báo)
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -993,11 +1178,11 @@ class MainWindow(QMainWindow):
         if row < 0 and self.files_queue:
             row = 0
         report = self.reports_map.get(row)
-        target = report.output_file if (report and os.path.exists(report.output_file)) else (self.files_queue[row] if row < len(self.files_queue) else "")
+        target = report.output_file if (report and os.path.exists(report.output_file)) else (self.files_queue[row] if (row >= 0 and row < len(self.files_queue)) else "")
         if target and os.path.exists(target):
             std = self._get_selected_standard()
-            editor = WordEditorWindow(self, initial_metadata={"standard_id": std}, current_file_path=target)
-            editor.show()
+            self._active_editor = WordEditorWindow(self, initial_metadata={"standard_id": std}, current_file_path=target)
+            self._active_editor.show()
         else:
             # Nếu chưa có tệp, mở Wizard để tạo mới
             self._open_quick_wizard()

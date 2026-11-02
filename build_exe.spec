@@ -52,6 +52,18 @@ hiddenimports = [
     'yaml',
     'shapely',
     'pyclipper',
+    'ui.quick_wizard_dialog',
+    'ui.editor.word_editor_window',
+    'ui.editor.administrative_ribbon',
+    'ui.editor.document_canvas',
+    'ui.editor.document_ruler',
+    'ui.editor.table_properties_dlg',
+    'core.editor_core.openxml_builder',
+    'core.editor_core.native_canvas_engine',
+    'core.editor_core.table_layout_manager',
+    'core.editor_core.com_word_host',
+    'core.legal_constraint_guard',
+    'core.template_wizard',
 ]
 
 a = Analysis(
