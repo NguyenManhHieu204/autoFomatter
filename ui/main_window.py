@@ -24,6 +24,8 @@ from core.win32_helper import Win32WordHelper
 from core.path_utils import get_config_dir, get_app_icon_path
 from ui.icon_factory import get_ui_icon, get_ui_pixmap
 from ui.styles import MAIN_STYLE
+from ui.quick_wizard_dialog import QuickWizardDialog
+from ui.editor.word_editor_window import WordEditorWindow
 
 
 class ProcessingWorker(QThread):
@@ -272,6 +274,20 @@ class MainWindow(QMainWindow):
         self.drop_zone.files_dropped.connect(self._add_files)
         left_layout.addWidget(self.drop_zone)
 
+        # Nút Tạo nhanh & Soạn thảo văn bản mới
+        self.btn_quick_create = QPushButton("Soạn thảo văn bản mới...")
+        self.btn_quick_create.setIcon(get_ui_icon("file_word"))
+        self.btn_quick_create.setIconSize(QSize(16, 16))
+        self.btn_quick_create.setStyleSheet("""
+            QPushButton {
+                background-color: #059669; color: white; font-weight: bold;
+                padding: 7px 14px; border-radius: 5px; border: none; font-size: 12px;
+            }
+            QPushButton:hover { background-color: #047857; }
+        """)
+        self.btn_quick_create.clicked.connect(self._open_quick_wizard)
+        left_layout.addWidget(self.btn_quick_create)
+
         # Nút quản lý danh sách file
         file_btns_layout = QHBoxLayout()
         self.btn_add_files = QPushButton("Thêm tệp...")
@@ -487,6 +503,14 @@ class MainWindow(QMainWindow):
         self.btn_sign_pdf.setEnabled(False)
         self.btn_sign_pdf.clicked.connect(self._open_signature_dialog)
 
+        self.btn_embedded_edit = QPushButton("Soạn thảo tích hợp")
+        self.btn_embedded_edit.setIcon(get_ui_icon("file_word"))
+        self.btn_embedded_edit.setIconSize(QSize(17, 17))
+        self.btn_embedded_edit.setStyleSheet("background-color: #059669; color: white; font-weight: 600;")
+        self.btn_embedded_edit.setEnabled(False)
+        self.btn_embedded_edit.setToolTip("Mở tài liệu trong Trình Soạn thảo Hành chính WYSIWYG tích hợp")
+        self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
+
         self.btn_open_dir = QPushButton("Mở thư mục")
         self.btn_open_dir.setIcon(get_ui_icon("folder_open"))
         self.btn_open_dir.setIconSize(QSize(17, 17))
@@ -495,6 +519,7 @@ class MainWindow(QMainWindow):
         self.btn_open_dir.clicked.connect(self._open_output_folder)
 
         actions_layout.addWidget(self.btn_run_ocr)
+        actions_layout.addWidget(self.btn_embedded_edit)
         actions_layout.addWidget(self.btn_open_word)
         actions_layout.addWidget(self.btn_open_pdf)
         actions_layout.addWidget(self.btn_sign_pdf)
@@ -680,6 +705,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "report_group"):
             self.report_group.setTitle("Chi tiết lỗi")
         self.btn_open_word.setEnabled(False)
+        self.btn_embedded_edit.setEnabled(False)
         self.btn_open_pdf.setEnabled(False)
         self.btn_sign_pdf.setEnabled(False)
         self.btn_open_dir.setEnabled(False)
@@ -814,6 +840,7 @@ class MainWindow(QMainWindow):
 
         # Kích hoạt các nút mở file
         self.btn_open_word.setEnabled(os.path.exists(report.output_file))
+        self.btn_embedded_edit.setEnabled(os.path.exists(report.output_file))
         # Nút PDF luôn kích hoạt nếu đã có tệp Word kết quả (để tạo PDF tức thì theo yêu cầu)
         self.btn_open_pdf.setEnabled(os.path.exists(report.output_file))
         self.btn_sign_pdf.setEnabled(os.path.exists(report.output_file))
@@ -954,6 +981,26 @@ class MainWindow(QMainWindow):
             status_item.setIcon(get_ui_icon("status_error"))
             status_item.setForeground(QColor("#dc2626"))
             QMessageBox.critical(self, "Lỗi OCR", f"Không thể nhận dạng OCR: {report.error_message}")
+
+    def _open_quick_wizard(self):
+        """Mở Wizard tạo nhanh văn bản chuẩn thể thức NĐ 30 / HD 36"""
+        wiz = QuickWizardDialog(self)
+        wiz.exec()
+
+    def _open_in_embedded_editor(self):
+        """Mở văn bản hiện tại trong Trình Soạn thảo Hành chính WYSIWYG tích hợp"""
+        row = self.table_files.currentRow()
+        if row < 0 and self.files_queue:
+            row = 0
+        report = self.reports_map.get(row)
+        target = report.output_file if (report and os.path.exists(report.output_file)) else (self.files_queue[row] if row < len(self.files_queue) else "")
+        if target and os.path.exists(target):
+            std = self._get_selected_standard()
+            editor = WordEditorWindow(self, initial_metadata={"standard_id": std}, current_file_path=target)
+            editor.show()
+        else:
+            # Nếu chưa có tệp, mở Wizard để tạo mới
+            self._open_quick_wizard()
 
     def _open_output_word(self):
         row = self.table_files.currentRow()
