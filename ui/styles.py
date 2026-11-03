@@ -1,7 +1,7 @@
 """
 ui/styles.py: Bộ giao diện giao diện phẳng hiện đại (Clean Minimalist Modern UI)
 Thiết kế theo chuẩn mực ứng dụng văn phòng cao cấp (Windows 11 Fluent / macOS Modern)
-- Bảng màu trung tính tinh tế, độ tương phản sắc nét
+- Bảng màu trung tính tinh tế, độ tương phản sắc nét, màu form sáng rõ
 - Loại bỏ hiệu ứng đổ bóng cồng kềnh, gradient sặc sỡ và phong cách AI-slop
 - Tối ưu hóa hiển thị trên màn hình độ phân giải cao (High-DPI), không cắt chữ
 """
@@ -15,8 +15,18 @@ QWidget {
     background-color: #f8fafc;
 }
 
+QLabel {
+    background-color: transparent;
+    color: #0f172a;
+}
+
 QMainWindow {
     background-color: #f1f5f9;
+}
+
+QDialog {
+    background-color: #ffffff;
+    color: #0f172a;
 }
 
 /* Menu Bar Hiện Đại & Tối Giản */
@@ -63,12 +73,12 @@ QMenu::separator {
     margin: 4px 6px;
 }
 
-/* Khung nhóm GroupBox Tinh Gọn */
+/* Khung nhóm GroupBox Tinh Gọn - Tương phản cao, dễ nhìn */
 QGroupBox {
     font-weight: 600;
     font-size: 12px;
-    color: #334155;
-    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
     margin-top: 14px;
     background-color: #ffffff;
@@ -79,8 +89,9 @@ QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
     left: 12px;
-    padding: 0 4px;
+    padding: 0 6px;
     background-color: #ffffff;
+    color: #1e293b;
 }
 
 /* Vùng Kéo & Thả (Drop Zone) */
@@ -139,6 +150,30 @@ QPushButton#btnPrimary:pressed, QPushButton.btn-primary:pressed {
     background-color: #1e40af;
 }
 
+/* Nút Đỏ / Xuất PDF */
+QPushButton#btnDanger {
+    background-color: #dc2626;
+    color: #ffffff;
+    border: 1px solid #b91c1c;
+    font-weight: 600;
+}
+
+QPushButton#btnDanger:hover {
+    background-color: #b91c1c;
+}
+
+/* Nút Tím / Ký số */
+QPushButton#btnPurple {
+    background-color: #7c3aed;
+    color: #ffffff;
+    border: 1px solid #6d28d9;
+    font-weight: 600;
+}
+
+QPushButton#btnPurple:hover {
+    background-color: #6d28d9;
+}
+
 /* Nút Chạy Chuẩn hóa Lớn */
 QPushButton#btnRun {
     background-color: #16a34a;
@@ -176,33 +211,46 @@ QLineEdit {
     border: 1px solid #cbd5e1;
     border-radius: 4px;
     padding: 4px 8px;
-    min-height: 26px;
+    min-height: 28px;
     color: #0f172a;
-    font-size: 12px;
+    font-size: 12.5px;
 }
 
 QLineEdit:focus {
-    border-color: #3b82f6;
+    border-color: #2563eb;
+}
+
+QPlainTextEdit {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: #0f172a;
+    font-size: 12.5px;
+}
+
+QPlainTextEdit:focus {
+    border-color: #2563eb;
 }
 
 QComboBox {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
-    padding: 4px 26px 4px 8px;
-    min-height: 26px;
+    padding: 4px 28px 4px 8px;
+    min-height: 28px;
     color: #0f172a;
-    font-size: 12px;
+    font-size: 12.5px;
 }
 
 QComboBox:focus {
-    border-color: #3b82f6;
+    border-color: #2563eb;
 }
 
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 22px;
+    width: 24px;
     border-left: 1px solid #cbd5e1;
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
@@ -221,28 +269,39 @@ QSpinBox {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
-    padding: 3px 6px;
-    min-height: 26px;
+    padding: 3px 8px;
+    min-height: 28px;
     color: #0f172a;
-    font-size: 12px;
+    font-size: 12.5px;
 }
 
 QSpinBox:focus {
-    border-color: #3b82f6;
+    border-color: #2563eb;
 }
 
-/* Radio Button & Checkbox - Không giới hạn min-height để tránh cắt chữ trên High-DPI */
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 20px;
+    border: none;
+    background-color: #f1f5f9;
+}
+
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #e2e8f0;
+}
+
+/* Radio Button & Checkbox - Tương phản cao, rõ ràng */
 QRadioButton, QCheckBox {
     spacing: 8px;
-    font-size: 12px;
-    color: #1e293b;
-    background: transparent;
-    padding: 2px 0;
+    font-size: 12.5px;
+    color: #0f172a;
+    background-color: transparent;
+    padding: 3px 0;
+    min-height: 22px;
 }
 
 QRadioButton::indicator, QCheckBox::indicator {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
 }
 
 /* Bảng dữ liệu */
@@ -263,6 +322,49 @@ QHeaderView::section {
     padding: 7px 10px;
     border: none;
     border-bottom: 1px solid #e2e8f0;
+}
+
+/* Thanh cuộn hiện đại (Modern Scrollbar) */
+QScrollBar:vertical {
+    border: none;
+    background: #f1f5f9;
+    width: 8px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cbd5e1;
+    min-height: 25px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #94a3b8;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #f1f5f9;
+    height: 8px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #cbd5e1;
+    min-width: 25px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #94a3b8;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
 }
 
 /* Thanh tiến trình */

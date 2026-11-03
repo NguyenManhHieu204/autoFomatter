@@ -224,8 +224,13 @@ class Win32WordHelper:
                 watchdog = WordWatchdog(timeout_sec=self.default_timeout_sec, target_pid=target_pid)
                 watchdog.start()
 
-            # Mở tài liệu Word
-            doc = word.Documents.Open(abs_docx)
+            # Mở tài liệu Word (Khóa tất cả các hộp thoại xác nhận conversion)
+            doc = word.Documents.Open(
+                FileName=abs_docx,
+                ConfirmConversions=False,
+                ReadOnly=False,
+                AddToRecentFiles=False
+            )
 
             # 1. Cập nhật các trường (Fields Update - số trang v.v.)
             try:

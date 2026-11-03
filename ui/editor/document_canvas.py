@@ -45,39 +45,49 @@ class DocumentCanvas(QWidget):
         self.orientation = "portrait"
         self.metadata: Dict[str, Any] = {
             "standard_id": "ND30",
-            "superior_agency": "ỦY BAN NHÂN DÂN",
-            "issuing_agency": "THÀNH PHỐ HÀ NỘI",
-            "doc_number": "Số: 125/QĐ-UBND",
-            "location": "Hà Nội",
-            "date_str": "Hà Nội, ngày ... tháng ... năm 2026",
+            "superior_agency": "ỦY BAN NHÂN DÂN HUYỆN",
+            "issuing_agency": "ỦY BAN NHÂN DÂN XÃ",
+            "doc_number": "Số: .../QĐ-UBND",
+            "location": "Xã",
+            "date_str": "..., ngày ... tháng ... năm 2026",
             "doc_type": "QUYẾT ĐỊNH",
-            "doc_subject": "Về việc phê duyệt kế hoạch chuyển đổi số năm 2026",
-            "recipients": ["- Như Điều 3;", "- Lưu: VT, TH."],
+            "doc_subject": "Về việc ban hành Kế hoạch phát triển kinh tế - xã hội năm 2026",
+            "recipients": [
+                "- Thường trực HĐND xã;",
+                "- Chủ tịch, các PCT UBND xã;",
+                "- Các ban ngành, đoàn thể xã;",
+                "- Các thôn, tổ dân phố;",
+                "- Lưu: VT."
+            ],
             "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
             "signer_position": "CHỦ TỊCH",
             "signer_name": "Nguyễn Văn A"
         }
 
-        # Bố cục trang giấy A4 trung tâm
+        # Bố cục trang giấy A4 căn giữa hoàn hảo
         main_layout = QVBoxLayout(self)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.setContentsMargins(40, 20, 40, 30)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        main_layout.setContentsMargins(40, 16, 40, 30)
         main_layout.setSpacing(10)
 
-        # Thanh tiện ích tối giản phía trên trang giấy
-        top_ctrl_bar = QHBoxLayout()
-        lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Lề: 20-20-30-15 mm")
+        # Thanh tiện ích phía trên trang giấy (Rộng đúng bằng khổ trang A4 và căn giữa)
+        self.top_ctrl_widget = QWidget()
+        self.top_ctrl_widget.setFixedWidth(self.A4_WIDTH_PX)
+        top_ctrl_bar = QHBoxLayout(self.top_ctrl_widget)
+        top_ctrl_bar.setContentsMargins(0, 0, 0, 0)
+
+        lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Lề: 20-20-30-15 mm • Chuẩn Cấp Xã")
         lbl_page_info.setStyleSheet("color: #64748b; font-size: 11.5px;")
         top_ctrl_bar.addWidget(lbl_page_info)
         top_ctrl_bar.addStretch()
 
-        self.btn_edit_meta = QPushButton("Sửa thể thức (F2)")
+        self.btn_edit_meta = QPushButton("Chỉnh sửa thể thức (F2)")
         self.btn_edit_meta.setIcon(get_ui_icon("edit"))
         self.btn_edit_meta.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff; color: #1e293b; font-weight: 500;
                 border: 1px solid #cbd5e1; border-radius: 4px;
-                padding: 4px 10px; font-size: 11.5px;
+                padding: 4px 12px; font-size: 11.5px;
             }
             QPushButton:hover { background-color: #f1f5f9; border-color: #94a3b8; }
         """)
@@ -85,11 +95,12 @@ class DocumentCanvas(QWidget):
         self.btn_edit_meta.clicked.connect(self.open_metadata_editor)
         top_ctrl_bar.addWidget(self.btn_edit_meta)
 
-        main_layout.addLayout(top_ctrl_bar)
+        main_layout.addWidget(self.top_ctrl_widget, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Trang giấy A4 (Page Sheet Card)
         self.page_sheet = QWidget()
-        self.page_sheet.setFixedSize(self.A4_WIDTH_PX, self.A4_HEIGHT_PX)
+        self.page_sheet.setFixedWidth(self.A4_WIDTH_PX)
+        self.page_sheet.setMinimumHeight(self.A4_HEIGHT_PX)
         self.page_sheet.setStyleSheet("""
             QWidget#page_sheet {
                 background-color: #ffffff;
@@ -170,7 +181,10 @@ class DocumentCanvas(QWidget):
                 line-height: 1.25;
             }
         """)
+        self.body_editor.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.body_editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.body_editor.textChanged.connect(self.document_modified.emit)
+        self.body_editor.textChanged.connect(self._adjust_sheet_height)
         self.body_editor.cursorPositionChanged.connect(self._on_cursor_changed)
         self.body_editor.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.body_editor.customContextMenuRequested.connect(self._show_body_context_menu)
@@ -206,24 +220,35 @@ class DocumentCanvas(QWidget):
 
         sheet_layout.addWidget(self.footer_frame)
 
-        main_layout.addWidget(self.page_sheet)
+        main_layout.addWidget(self.page_sheet, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self._refresh_scaffolding_display()
         self._load_sample_body()
 
+    def _adjust_sheet_height(self, new_size=None):
+        """Tự động điều chỉnh chiều cao trang giấy theo dung lượng nội dung, không để lộ thanh cuộn con"""
+        doc_h = int(self.body_editor.document().size().height())
+        base_h = self.A4_WIDTH_PX if self.orientation == "landscape" else self.A4_HEIGHT_PX
+        needed_h = max(int(base_h * self.zoom), int((doc_h + 380) * self.zoom))
+        self.page_sheet.setFixedHeight(needed_h)
+
     def set_zoom(self, zoom: float):
         self.zoom = max(0.4, min(2.5, zoom))
         base_w = self.A4_HEIGHT_PX if self.orientation == "landscape" else self.A4_WIDTH_PX
-        base_h = self.A4_WIDTH_PX if self.orientation == "landscape" else self.A4_HEIGHT_PX
         new_w = int(base_w * self.zoom)
-        new_h = int(base_h * self.zoom)
-        self.page_sheet.setFixedSize(new_w, new_h)
+        self.page_sheet.setFixedWidth(new_w)
+        if hasattr(self, 'top_ctrl_widget'):
+            self.top_ctrl_widget.setFixedWidth(new_w)
+        self._adjust_sheet_height()
 
     def set_page_orientation(self, orientation: str):
         self.orientation = orientation
         base_w = self.A4_HEIGHT_PX if self.orientation == "landscape" else self.A4_WIDTH_PX
-        base_h = self.A4_WIDTH_PX if self.orientation == "landscape" else self.A4_HEIGHT_PX
-        self.page_sheet.setFixedSize(int(base_w * self.zoom), int(base_h * self.zoom))
+        new_w = int(base_w * self.zoom)
+        self.page_sheet.setFixedWidth(new_w)
+        if hasattr(self, 'top_ctrl_widget'):
+            self.top_ctrl_widget.setFixedWidth(new_w)
+        self._adjust_sheet_height()
 
     def set_lock_scaffolding(self, locked: bool):
         self.lock_scaffolding = locked
@@ -571,28 +596,39 @@ class DocumentCanvas(QWidget):
         if file_path:
             cursor = self.body_editor.textCursor()
             img = QPixmap(file_path)
-            max_w = self.page_sheet.width() - 170
-            if img.width() > max_w:
-                img = img.scaledToWidth(max_w, Qt.TransformationMode.SmoothTransformation)
+            # Giới hạn kích thước ảnh phù hợp chuẩn văn bản hành chính (tối đa 400 x 280)
+            max_w = 400
+            max_h = 280
+            if img.width() > max_w or img.height() > max_h:
+                img = img.scaled(max_w, max_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             cursor.insertImage(img.toImage())
             self.body_editor.setTextCursor(cursor)
+            self._adjust_sheet_height()
             self.document_modified.emit()
 
     def insert_page_break(self):
         cursor = self.body_editor.textCursor()
         page_break_html = """
-        <div style='margin: 18px 0; text-align: center; border-top: 1px dashed #94a3b8; border-bottom: 1px dashed #94a3b8; padding: 4px 0;'>
-            <span style='color: #64748b; font-size: 11px; font-weight: 500; font-family: Segoe UI, Arial, sans-serif;'>
-                --- NGẮT TRANG (PAGE BREAK) ---
-            </span>
+        <div style='margin: 12px 0; border-top: 1.5px dashed #94a3b8; text-align: right;'>
+            <span style='color: #94a3b8; font-size: 10px; font-style: italic; font-family: Segoe UI, Arial, sans-serif;'>[NGẮT TRANG]</span>
         </div>
         <p style='text-indent: 36px;'><br/></p>
         """
         cursor.insertHtml(page_break_html)
         self.body_editor.setTextCursor(cursor)
+        self._adjust_sheet_height()
         self.document_modified.emit()
 
     def get_body_paragraphs(self) -> List[str]:
         """Trích xuất danh sách các đoạn văn bản trong Body để chuyển giao sang OpenXmlBuilder"""
         raw_text = self.body_editor.toPlainText()
-        return [p.strip() for p in raw_text.splitlines() if p.strip()]
+        paras = []
+        for line in raw_text.splitlines():
+            line_str = line.strip()
+            if not line_str:
+                continue
+            if "[NGẮT TRANG]" in line_str or "NGẮT TRANG" in line_str or "PAGE BREAK" in line_str:
+                paras.append("[PAGE_BREAK]")
+            else:
+                paras.append(line_str)
+        return paras

@@ -111,7 +111,7 @@ class QuickWizardDialog(QDialog):
         row_loc = QHBoxLayout()
         row_loc.addWidget(QLabel("Địa danh:"))
         self.txt_location = QLineEdit()
-        self.txt_location.setText("Hà Nội")
+        self.txt_location.setText("Xã")
         row_loc.addWidget(self.txt_location, 1)
         sign_layout.addLayout(row_loc)
 
@@ -153,14 +153,14 @@ class QuickWizardDialog(QDialog):
             self.cb_profiles.addItem(p.get("name", "Cơ quan"), p)
 
         if not matched:
-            self.cb_profiles.addItem("Cơ quan mặc định", {
+            self.cb_profiles.addItem("Cơ quan cấp xã mặc định", {
                 "standard_id": std,
-                "superior_agency": "TỈNH ỦY" if std == "HD36" else "ỦY BAN NHÂN DÂN",
-                "issuing_agency": "BAN THƯỜNG VỤ" if std == "HD36" else "THÀNH PHỐ HÀ NỘI",
-                "authority_prefix": "T/M BAN THƯỜNG VỤ" if std == "HD36" else "TM. ỦY BAN NHÂN DÂN",
+                "superior_agency": "HUYỆN ỦY" if std == "HD36" else "ỦY BAN NHÂN DÂN HUYỆN",
+                "issuing_agency": "ĐẢNG ỦY XÃ" if std == "HD36" else "ỦY BAN NHÂN DÂN XÃ",
+                "authority_prefix": "T/M ĐẢNG ỦY" if std == "HD36" else "TM. ỦY BAN NHÂN DÂN",
                 "signer_position": "BÍ THƯ" if std == "HD36" else "CHỦ TỊCH",
                 "signer_name": "Nguyễn Văn A",
-                "location": "Hà Nội"
+                "location": "Xã"
             })
 
         self._refresh_doc_types()
@@ -176,7 +176,7 @@ class QuickWizardDialog(QDialog):
         if data:
             self.txt_position.setText(data.get("signer_position", ""))
             self.txt_signer_name.setText(data.get("signer_name", ""))
-            self.txt_location.setText(data.get("location", "Hà Nội"))
+            self.txt_location.setText(data.get("location", "Xã"))
 
     def _create_and_open_editor(self):
         subj = self.txt_subject.text().strip()
@@ -195,7 +195,7 @@ class QuickWizardDialog(QDialog):
             "superior_agency": profile_data.get("superior_agency", ""),
             "issuing_agency": profile_data.get("issuing_agency", ""),
             "doc_number": profile_data.get("doc_number_symbol", "QĐ-UBND"),
-            "location": self.txt_location.text().strip() or "Hà Nội",
+            "location": self.txt_location.text().strip() or "Xã",
             "doc_type": doc_type_disp.split("(")[0].strip().upper(),
             "doc_subject": f"Về việc {subj}" if not subj.lower().startswith("về việc") and not subj.lower().startswith("v/v") else subj,
             "authority_prefix": profile_data.get("authority_prefix", ""),

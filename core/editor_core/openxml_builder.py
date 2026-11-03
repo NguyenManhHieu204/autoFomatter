@@ -277,13 +277,20 @@ class OpenXmlBuilder:
                 ]
 
         for p_text in body_paras:
+            t_strip = p_text.strip()
+            if not t_strip:
+                continue
+
+            # Kiểm tra ngắt trang thực tế (Không in dòng chữ ra văn bản Word)
+            if any(k in t_strip.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG", "PAGE_BREAK"]):
+                doc.add_page_break()
+                continue
+
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p.paragraph_format.line_spacing = 1.2
             p.paragraph_format.space_before = Pt(2)
             p.paragraph_format.space_after = Pt(2)
-
-            t_strip = p_text.strip()
             # Tiêu đề lệnh (QUYẾT ĐỊNH:, QUYẾT NGHỊ:, THÔNG BÁO:) -> Căn giữa, in đậm
             if t_strip.endswith(":") and any(k in t_strip.upper() for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER

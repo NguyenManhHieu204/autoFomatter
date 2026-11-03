@@ -70,6 +70,7 @@ class WordEditorWindow(QMainWindow):
         # 4. VÙNG KHUNG VẼ SOẠN THẢO (SCROLLABLE CANVAS)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #94a3b8; }")
 
         self.canvas = DocumentCanvas()
@@ -92,38 +93,67 @@ class WordEditorWindow(QMainWindow):
     def _setup_top_action_bar(self, parent_layout: QVBoxLayout):
         """Thanh tiêu đề chứa các nút hành động cốt lõi: Lưu DOCX, Xuất PDF, Ký số ngay"""
         bar = QFrame()
-        bar.setFixedHeight(42)
-        bar.setStyleSheet("background-color: #ffffff; border-bottom: 1px solid #e2e8f0;")
+        bar.setFixedHeight(50)
+        bar.setStyleSheet("background-color: #ffffff; border-bottom: 1px solid #cbd5e1;")
         bar_layout = QHBoxLayout(bar)
-        bar_layout.setContentsMargins(14, 4, 14, 4)
-        bar_layout.setSpacing(8)
+        bar_layout.setContentsMargins(16, 6, 16, 6)
+        bar_layout.setSpacing(10)
 
         # Tiêu đề tài liệu
         doc_title = "Trình soạn thảo văn bản hành chính"
         if self.current_file_path:
             doc_title = os.path.basename(self.current_file_path)
         self.lbl_doc_title = QLabel(doc_title)
-        self.lbl_doc_title.setStyleSheet("color: #0f172a; font-weight: 600; font-size: 13px;")
+        self.lbl_doc_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 13.5px;")
         bar_layout.addWidget(self.lbl_doc_title)
 
         bar_layout.addStretch()
 
         # Nút Lưu file DOCX
-        self.btn_save = QPushButton("Lưu (.docx)")
+        self.btn_save = QPushButton("Lưu văn bản (.docx)")
         self.btn_save.setIcon(get_ui_icon("file_word"))
         self.btn_save.setObjectName("btnPrimary")
+        self.btn_save.setStyleSheet("""
+            QPushButton#btnPrimary {
+                background-color: #2563eb; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
+                border: 1px solid #1d4ed8;
+            }
+            QPushButton#btnPrimary:hover { background-color: #1d4ed8; }
+        """)
+        self.btn_save.setToolTip("Lưu tài liệu định dạng Word (.docx) chuẩn thể thức")
         self.btn_save.clicked.connect(self._save_document)
         bar_layout.addWidget(self.btn_save)
 
         # Nút Xuất PDF
-        self.btn_export_pdf = QPushButton("Xuất PDF")
+        self.btn_export_pdf = QPushButton("Xuất tệp PDF")
         self.btn_export_pdf.setIcon(get_ui_icon("file_pdf"))
+        self.btn_export_pdf.setObjectName("btnDanger")
+        self.btn_export_pdf.setStyleSheet("""
+            QPushButton#btnDanger {
+                background-color: #dc2626; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
+                border: 1px solid #b91c1c;
+            }
+            QPushButton#btnDanger:hover { background-color: #b91c1c; }
+        """)
+        self.btn_export_pdf.setToolTip("Xuất văn bản sang định dạng PDF chuẩn in ấn và lưu trữ")
         self.btn_export_pdf.clicked.connect(self._export_pdf)
         bar_layout.addWidget(self.btn_export_pdf)
 
         # Nút Ký số ngay
-        self.btn_sign = QPushButton("Ký số (NĐ 30)")
+        self.btn_sign = QPushButton("Ký số điện tử (NĐ 30)")
         self.btn_sign.setIcon(get_ui_icon("digital_sign"))
+        self.btn_sign.setObjectName("btnPurple")
+        self.btn_sign.setStyleSheet("""
+            QPushButton#btnPurple {
+                background-color: #7c3aed; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
+                border: 1px solid #6d28d9;
+            }
+            QPushButton#btnPurple:hover { background-color: #6d28d9; }
+        """)
+        self.btn_sign.setToolTip("Xuất PDF và ký số PAdES với Token Ban Cơ yếu / Chữ ký số")
         self.btn_sign.clicked.connect(self._sign_document_now)
         bar_layout.addWidget(self.btn_sign)
 
@@ -163,6 +193,11 @@ class WordEditorWindow(QMainWindow):
         status.addPermanentWidget(zoom_container)
 
     def _connect_signals(self):
+        # 0. Tác vụ Tệp từ Ribbon
+        self.ribbon.save_document_requested.connect(self._save_document)
+        self.ribbon.export_pdf_requested.connect(self._export_pdf)
+        self.ribbon.sign_document_requested.connect(self._sign_document_now)
+
         # 1. Định dạng văn bản từ Ribbon sang Canvas
         self.ribbon.format_bold_triggered.connect(self.canvas.set_font_bold)
         self.ribbon.format_italic_triggered.connect(self.canvas.set_font_italic)
@@ -315,6 +350,123 @@ class WordEditorWindow(QMainWindow):
             QMessageBox.critical(self, "Lỗi lưu tệp", f"Không thể lưu tài liệu: {str(e)}")
             return None
 
+    def _export_pdf_via_qt(self, pdf_target: str) -> bool:
+        """Xuất tệp PDF ngoại tuyến độc lập bằng QPdfWriter chuẩn kích thước A4 và lề NĐ 30"""
+        try:
+            from PyQt6.QtGui import QPdfWriter, QTextDocument, QPageSize, QPageLayout, QFont
+            from PyQt6.QtCore import QMarginsF
+
+            writer = QPdfWriter(pdf_target)
+            writer.setResolution(300)
+            page_size = QPageSize(QPageSize.PageSizeId.A4)
+            orientation = QPageLayout.Orientation.Landscape if self.canvas.orientation == "landscape" else QPageLayout.Orientation.Portrait
+            # NĐ 30: Trái 30mm, Trên 20mm, Phải 15mm, Dưới 20mm
+            margins = QMarginsF(30, 20, 15, 20)
+            layout = QPageLayout(page_size, orientation, margins, QPageLayout.Unit.Millimeter)
+            writer.setPageLayout(layout)
+
+            meta = self.canvas.metadata
+            std = meta.get("standard_id", "ND30").upper()
+            sup = meta.get("superior_agency", "").strip().upper()
+            iss = meta.get("issuing_agency", "").strip().upper()
+            num = meta.get("doc_number", "Số: .../QĐ-UBND")
+            date_str = meta.get("date_str", "..., ngày ... tháng ... năm 2026")
+            doc_type = meta.get("doc_type", "QUYẾT ĐỊNH")
+            doc_subject = meta.get("doc_subject", "")
+            auth_prefix = meta.get("authority_prefix", "")
+            signer_pos = meta.get("signer_position", "")
+            signer_name = meta.get("signer_name", "")
+            recipients = meta.get("recipients", [])
+
+            # Header left
+            h_left = "<div style='text-align: center; font-family: \"Times New Roman\";'>"
+            if sup:
+                h_left += f"<div style='font-size: 11pt;'>{sup}</div>"
+            h_left += f"<div style='font-weight: bold; font-size: 11.5pt;'>{iss}</div>"
+            div_sym = "———*———" if std == "HD36" else "—————"
+            h_left += f"<div style='font-size: 8pt; margin: 2px 0;'>{div_sym}</div>"
+            h_left += f"<div style='font-size: 11pt; margin-top: 2px;'>{num}</div>"
+            h_left += "</div>"
+
+            # Header right
+            h_right = "<div style='text-align: center; font-family: \"Times New Roman\";'>"
+            if std == "HD36":
+                h_right += "<div style='font-weight: bold; font-size: 12pt;'>ĐẢNG CỘNG SẢN VIỆT NAM</div>"
+                h_right += "<div style='font-size: 9pt; margin: 2px 0;'>———————————————</div>"
+            else:
+                h_right += "<div style='font-weight: bold; font-size: 11.5pt;'>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>"
+                h_right += "<div style='font-weight: bold; font-size: 12pt;'>Độc lập - Tự do - Hạnh phúc</div>"
+                h_right += "<div style='font-size: 8pt; margin: 2px 0;'>—————————————</div>"
+            h_right += f"<div style='font-style: italic; font-size: 12pt; margin-top: 4px;'>{date_str}</div>"
+            h_right += "</div>"
+
+            # Body html
+            body_html = self.canvas.body_editor.toHtml()
+            body_html = body_html.replace("[PAGE_BREAK]", "<div style='page-break-after: always;'></div>")
+            body_html = body_html.replace("--- NGẮT TRANG (PAGE BREAK) ---", "<div style='page-break-after: always;'></div>")
+
+            # Footer left (Nơi nhận)
+            f_left = "<div style='font-family: \"Times New Roman\"; font-size: 10.5pt; text-align: left;'>"
+            f_left += "<b><i>Nơi nhận:</i></b><br/>"
+            for r in recipients:
+                f_left += f"<div style='font-size: 10pt; line-height: 1.2;'>{r}</div>"
+            f_left += "</div>"
+
+            # Footer right (Chữ ký)
+            f_right = "<div style='font-family: \"Times New Roman\"; font-size: 12.5pt; text-align: center;'>"
+            if auth_prefix:
+                f_right += f"<div style='font-weight: bold;'>{auth_prefix}</div>"
+            f_right += f"<div style='font-weight: bold;'>{signer_pos}</div>"
+            f_right += "<div style='height: 55px;'></div>"
+            f_right += f"<div style='font-weight: bold;'>{signer_name}</div>"
+            f_right += "</div>"
+
+            full_html = f"""
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: 'Times New Roman', serif; color: #000000; font-size: 13pt; line-height: 1.3; }}
+                table {{ border-collapse: collapse; }}
+                p {{ margin: 4px 0; text-indent: 36px; text-align: justify; }}
+            </style>
+            </head>
+            <body>
+                <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td width="42%" valign="top">{h_left}</td>
+                        <td width="58%" valign="top">{h_right}</td>
+                    </tr>
+                </table>
+
+                <div style="text-align: center; margin-top: 18px; margin-bottom: 14px;">
+                    <div style="font-family: 'Times New Roman'; font-size: 15pt; font-weight: bold;">{doc_type}</div>
+                    <div style="font-family: 'Times New Roman'; font-size: 13.5pt; font-weight: bold; margin-top: 4px;">{doc_subject}</div>
+                </div>
+
+                <div style="margin-top: 12px; margin-bottom: 24px;">
+                    {body_html}
+                </div>
+
+                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+                    <tr>
+                        <td width="45%" valign="top">{f_left}</td>
+                        <td width="55%" valign="top">{f_right}</td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+            """
+
+            doc = QTextDocument()
+            doc.setDefaultFont(QFont("Times New Roman", 13))
+            doc.setHtml(full_html)
+            doc.print(writer)
+            return True
+        except Exception as e:
+            print(f"[Qt PDF Export Error] {e}")
+            return False
+
     def _export_pdf(self) -> Optional[str]:
         docx_path = self._save_document()
         if not docx_path:
@@ -328,19 +480,32 @@ class WordEditorWindow(QMainWindow):
         QApplication.processEvents()
 
         try:
-            res = self.win32_helper.process_document_via_word(docx_path, export_pdf_also=True)
-            if res.get("pdf_exported") and os.path.exists(pdf_target):
+            pdf_ok = False
+            # 1. Thử xuất qua Word COM nếu khả dụng
+            if self.win32_helper.is_word_available():
+                try:
+                    res = self.win32_helper.process_document_via_word(docx_path, export_pdf_also=True)
+                    if res.get("pdf_exported") and os.path.exists(pdf_target):
+                        pdf_ok = True
+                except Exception:
+                    pdf_ok = False
+
+            # 2. Cơ chế cứu sinh tự động (Fail-safe Fallback): Nếu Word COM không xuất được hoặc bị treo/thiếu Office, dùng ngay Qt PDF Writer
+            if not pdf_ok:
+                pdf_ok = self._export_pdf_via_qt(pdf_target)
+
+            if pdf_ok and os.path.exists(pdf_target):
                 QMessageBox.information(
                     self, "Xuất PDF Thành công",
-                    f"Đã xuất tệp PDF ngoại tuyến chuẩn in ấn:\n{pdf_target}"
+                    f"Đã xuất tệp PDF chuẩn thể thức NĐ 30 thành công:\n{pdf_target}\n\nSẵn sàng ký số điện tử hoặc in ấn."
                 )
                 return pdf_target
             else:
-                QMessageBox.warning(self, "Xuất PDF", res.get("message", "Không thể xuất PDF qua MS Word COM."))
+                QMessageBox.warning(self, "Lỗi xuất PDF", "Không thể tạo tệp PDF. Vui lòng kiểm tra quyền ghi tệp.")
                 return None
         finally:
             self.btn_export_pdf.setEnabled(True)
-            self.btn_export_pdf.setText("Xuất PDF")
+            self.btn_export_pdf.setText("Xuất tệp PDF")
 
     def _sign_document_now(self):
         """Xuất PDF và mở trực tiếp Module Ký số điện tử với vị trí khung ký định vị tự động"""

@@ -143,7 +143,7 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertIn("Công văn hành chính", types_nd30)
 
         types_hd36 = controller.get_available_document_types("HD36")
-        self.assertIn("Nghị quyết của Đảng", types_hd36)
+        self.assertIn("Nghị quyết Đảng ủy", types_hd36)
 
         # Thử khởi tạo văn bản từ Wizard
         p = profiles[0]

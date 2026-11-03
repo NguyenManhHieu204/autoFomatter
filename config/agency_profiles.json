@@ -1,81 +1,82 @@
 {
-  "active_profile_id": "party_tinhuy",
+  "active_profile_id": "state_ubnd_xa",
   "profiles": [
     {
-      "id": "party_tinhuy",
-      "name": "Tỉnh ủy (Cấp ủy Đảng)",
-      "standard_id": "HD36",
-      "superior_agency": "TỈNH ỦY HÀ NỘI",
-      "issuing_agency": "BAN THƯỜNG VỤ",
-      "location": "Hà Nội",
-      "doc_type": "Công văn",
-      "doc_number_symbol": "CV/TU",
-      "authority_prefix": "T/M BAN THƯỜNG VỤ",
-      "signer_position": "BÍ THƯ",
-      "signer_name": "Nguyễn Văn An",
-      "recipients": [
-        "- Thường trực Tỉnh ủy (để b/c),",
-        "- Các ban đảng, ban cán sự đảng, đảng đoàn,",
-        "- Các huyện, thị, thành ủy và đảng ủy trực thuộc,",
-        "- Lưu: VT, TH."
-      ]
-    },
-    {
-      "id": "party_vanphong",
-      "name": "Văn phòng Tỉnh ủy (Cơ quan chuyên trách)",
-      "standard_id": "HD36",
-      "superior_agency": "TỈNH ỦY HÀ NỘI",
-      "issuing_agency": "VĂN PHÒNG",
-      "location": "Hà Nội",
-      "doc_type": "Thông báo",
-      "doc_number_symbol": "TB/VPTU",
-      "authority_prefix": "T/L BAN THƯỜNG VỤ",
-      "signer_position": "CHÁNH VĂN PHÒNG",
-      "signer_name": "Trần Thị Bình",
-      "recipients": [
-        "- Thường trực Tỉnh ủy (để b/c),",
-        "- Lãnh đạo Văn phòng Tỉnh ủy,",
-        "- Các phòng chuyên môn,",
-        "- Lưu: VT, HC."
-      ]
-    },
-    {
-      "id": "state_ubnd",
-      "name": "Ủy ban nhân dân tỉnh/thành phố",
+      "id": "state_ubnd_xa",
+      "name": "Ủy ban nhân dân xã / thị trấn",
       "standard_id": "ND30",
-      "superior_agency": "ỦY BAN NHÂN DÂN",
-      "issuing_agency": "THÀNH PHỐ HÀ NỘI",
-      "location": "Hà Nội",
+      "superior_agency": "ỦY BAN NHÂN DÂN HUYỆN",
+      "issuing_agency": "ỦY BAN NHÂN DÂN XÃ",
+      "location": "Xã",
       "doc_type": "Quyết định",
       "doc_number_symbol": "QĐ-UBND",
       "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
       "signer_position": "CHỦ TỊCH",
-      "signer_name": "Lê Văn Cường",
+      "signer_name": "Nguyễn Văn A",
       "recipients": [
-        "- Thường trực HĐND thành phố,",
-        "- Chủ tịch, các Phó Chủ tịch UBND TP,",
-        "- Các sở, ban, ngành thành phố,",
-        "- UBND các quận, huyện, thị xã,",
-        "- Lưu: VT, TH."
+        "- Thường trực HĐND xã;",
+        "- Chủ tịch, các Phó Chủ tịch UBND xã;",
+        "- Các ban ngành, đoàn thể xã;",
+        "- Các thôn, tổ dân phố;",
+        "- Lưu: VT."
       ]
     },
     {
-      "id": "state_so_noivu",
-      "name": "Sở Nội vụ (Cơ quan chuyên môn)",
+      "id": "state_hdnd_xa",
+      "name": "Hội đồng nhân dân xã / thị trấn",
       "standard_id": "ND30",
-      "superior_agency": "ỦY BAN NHÂN DÂN THÀNH PHỐ HÀ NỘI",
-      "issuing_agency": "SỞ NỘI VỤ",
-      "location": "Hà Nội",
-      "doc_type": "Tờ trình",
-      "doc_number_symbol": "TTr-SNV",
-      "authority_prefix": "KT. GIÁM ĐỐC",
-      "signer_position": "PHÓ GIÁM ĐỐC",
-      "signer_name": "Phạm Văn Dũng",
+      "superior_agency": "HỘI ĐỒNG NHÂN DÂN HUYỆN",
+      "issuing_agency": "HỘI ĐỒNG NHÂN DÂN XÃ",
+      "location": "Xã",
+      "doc_type": "Nghị quyết",
+      "doc_number_symbol": "NQ-HĐND",
+      "authority_prefix": "TM. HỘI ĐỒNG NHÂN DÂN",
+      "signer_position": "CHỦ TỊCH",
+      "signer_name": "Trần Văn B",
       "recipients": [
-        "- UBND thành phố (để b/c),",
-        "- Ban Giám đốc Sở,",
-        "- Các phòng chuyên môn thuộc Sở,",
-        "- Lưu: VT, CCHC."
+        "- Thường trực HĐND huyện;",
+        "- Thường trực Đảng ủy, UBND xã;",
+        "- Đại biểu HĐND xã;",
+        "- Lưu: VP HĐND."
+      ]
+    },
+    {
+      "id": "party_danguy_xa",
+      "name": "Đảng ủy xã / thị trấn",
+      "standard_id": "HD36",
+      "superior_agency": "HUYỆN ỦY",
+      "issuing_agency": "ĐẢNG ỦY XÃ",
+      "location": "Xã",
+      "doc_type": "Quyết định",
+      "doc_number_symbol": "QĐ/ĐU",
+      "authority_prefix": "T/M ĐẢNG ỦY",
+      "signer_position": "BÍ THƯ",
+      "signer_name": "Lê Văn C",
+      "recipients": [
+        "- Thường trực Huyện ủy (để b/c);",
+        "- Các ban xây dựng Đảng Huyện ủy;",
+        "- Thường trực HĐND, UBND xã;",
+        "- Các chi bộ trực thuộc;",
+        "- Lưu: VP Đảng ủy."
+      ]
+    },
+    {
+      "id": "party_ubkt_xa",
+      "name": "Ủy ban Kiểm tra Đảng ủy xã",
+      "standard_id": "HD36",
+      "superior_agency": "ĐẢNG ỦY XÃ",
+      "issuing_agency": "ỦY BAN KIỂM TRA",
+      "location": "Xã",
+      "doc_type": "Kế hoạch",
+      "doc_number_symbol": "KH/UBKT",
+      "authority_prefix": "T/M ỦY BAN KIỂM TRA",
+      "signer_position": "CHỦ NHIỆM",
+      "signer_name": "Phạm Văn D",
+      "recipients": [
+        "- Thường trực Đảng ủy xã;",
+        "- UBKT Huyện ủy (để b/c);",
+        "- Các chi bộ được kiểm tra, giám sát;",
+        "- Lưu: UBKT."
       ]
     }
   ]

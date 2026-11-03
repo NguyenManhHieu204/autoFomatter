@@ -30,13 +30,13 @@ class TemplateWizardController:
     ]
 
     DOCUMENT_TYPES_HD36 = [
-        "Nghị quyết của Đảng",
-        "Quyết định của Đảng",
-        "Chỉ thị của Đảng",
-        "Kết luận của Ban Thường vụ",
-        "Công văn của Đảng",
-        "Thông báo của Đảng",
-        "Kế hoạch của Đảng"
+        "Quyết định Đảng ủy",
+        "Nghị quyết Đảng ủy",
+        "Chỉ thị Đảng ủy",
+        "Công văn Đảng ủy",
+        "Kế hoạch Đảng ủy",
+        "Báo cáo Đảng ủy",
+        "Thông báo Đảng ủy"
     ]
 
     def __init__(self, config_dir: Optional[str] = None):

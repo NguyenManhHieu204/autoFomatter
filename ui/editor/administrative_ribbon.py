@@ -20,6 +20,10 @@ from ui.icon_factory import get_ui_icon
 
 class AdministrativeRibbonBar(QWidget):
     # Signals
+    save_document_requested = pyqtSignal()
+    export_pdf_requested = pyqtSignal()
+    sign_document_requested = pyqtSignal()
+
     format_bold_triggered = pyqtSignal()
     format_italic_triggered = pyqtSignal()
     format_underline_triggered = pyqtSignal()
@@ -141,6 +145,40 @@ class AdministrativeRibbonBar(QWidget):
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(10, 4, 10, 4)
         layout.setSpacing(6)
+
+        # Nhóm Tệp & Xuất bản trực tiếp
+        file_box = QVBoxLayout()
+        file_box.setSpacing(2)
+
+        row_f1 = QHBoxLayout()
+        row_f1.setSpacing(4)
+        self.btn_ribbon_save = QToolButton()
+        self.btn_ribbon_save.setText("Lưu (.docx)")
+        self.btn_ribbon_save.setIcon(get_ui_icon("file_word"))
+        self.btn_ribbon_save.setIconSize(QSize(16, 16))
+        self.btn_ribbon_save.setStyleSheet("font-weight: 600; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe;")
+        self.btn_ribbon_save.clicked.connect(self.save_document_requested.emit)
+        row_f1.addWidget(self.btn_ribbon_save)
+
+        self.btn_ribbon_pdf = QToolButton()
+        self.btn_ribbon_pdf.setText("Xuất PDF")
+        self.btn_ribbon_pdf.setIcon(get_ui_icon("file_pdf"))
+        self.btn_ribbon_pdf.setIconSize(QSize(16, 16))
+        self.btn_ribbon_pdf.setStyleSheet("font-weight: 600; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca;")
+        self.btn_ribbon_pdf.clicked.connect(self.export_pdf_requested.emit)
+        row_f1.addWidget(self.btn_ribbon_pdf)
+        file_box.addLayout(row_f1)
+
+        self.btn_ribbon_sign = QToolButton()
+        self.btn_ribbon_sign.setText("Ký số điện tử (NĐ 30)")
+        self.btn_ribbon_sign.setIcon(get_ui_icon("digital_sign"))
+        self.btn_ribbon_sign.setIconSize(QSize(16, 16))
+        self.btn_ribbon_sign.setStyleSheet("font-weight: 600; color: #7c3aed; background: #f5f3ff; border: 1px solid #ddd6fe;")
+        self.btn_ribbon_sign.clicked.connect(self.sign_document_requested.emit)
+        file_box.addWidget(self.btn_ribbon_sign)
+
+        layout.addLayout(file_box)
+        layout.addWidget(self._create_separator())
 
         # Phông chữ
         font_box = QVBoxLayout()
