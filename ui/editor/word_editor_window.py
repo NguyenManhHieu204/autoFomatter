@@ -351,7 +351,7 @@ class WordEditorWindow(QMainWindow):
             return None
 
     def _export_pdf_via_qt(self, pdf_target: str) -> bool:
-        """Xuất tệp PDF ngoại tuyến độc lập bằng QPdfWriter chuẩn kích thước A4 và lề NĐ 30"""
+        """Xuất tệp PDF ngoại tuyến độc lập bằng QPdfWriter chuẩn kích thước A4 và lề NĐ 30, hỗ trợ đa trang và xoay ngang độc lập"""
         try:
             from PyQt6.QtGui import QPdfWriter, QTextDocument, QPageSize, QPageLayout, QFont
             from PyQt6.QtCore import QMarginsF
@@ -359,11 +359,9 @@ class WordEditorWindow(QMainWindow):
             writer = QPdfWriter(pdf_target)
             writer.setResolution(300)
             page_size = QPageSize(QPageSize.PageSizeId.A4)
-            orientation = QPageLayout.Orientation.Landscape if self.canvas.orientation == "landscape" else QPageLayout.Orientation.Portrait
-            # NĐ 30: Trái 30mm, Trên 20mm, Phải 15mm, Dưới 20mm
             margins = QMarginsF(30, 20, 15, 20)
-            layout = QPageLayout(page_size, orientation, margins, QPageLayout.Unit.Millimeter)
-            writer.setPageLayout(layout)
+            layout_portrait = QPageLayout(page_size, QPageLayout.Orientation.Portrait, margins, QPageLayout.Unit.Millimeter)
+            layout_landscape = QPageLayout(page_size, QPageLayout.Orientation.Landscape, margins, QPageLayout.Unit.Millimeter)
 
             meta = self.canvas.metadata
             std = meta.get("standard_id", "ND30").upper()
@@ -400,11 +398,6 @@ class WordEditorWindow(QMainWindow):
             h_right += f"<div style='font-style: italic; font-size: 12pt; margin-top: 4px;'>{date_str}</div>"
             h_right += "</div>"
 
-            # Body html
-            body_html = self.canvas.body_editor.toHtml()
-            body_html = body_html.replace("[PAGE_BREAK]", "<div style='page-break-after: always;'></div>")
-            body_html = body_html.replace("--- NGẮT TRANG (PAGE BREAK) ---", "<div style='page-break-after: always;'></div>")
-
             # Footer left (Nơi nhận)
             f_left = "<div style='font-family: \"Times New Roman\"; font-size: 10.5pt; text-align: left;'>"
             f_left += "<b><i>Nơi nhận:</i></b><br/>"
@@ -421,47 +414,73 @@ class WordEditorWindow(QMainWindow):
             f_right += f"<div style='font-weight: bold;'>{signer_name}</div>"
             f_right += "</div>"
 
-            full_html = f"""
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <style>
-                body {{ font-family: 'Times New Roman', serif; color: #000000; font-size: 13pt; line-height: 1.3; }}
-                table {{ border-collapse: collapse; }}
-                p {{ margin: 4px 0; text-indent: 36px; text-align: justify; }}
-            </style>
-            </head>
-            <body>
-                <table width="100%" border="0" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td width="42%" valign="top">{h_left}</td>
-                        <td width="58%" valign="top">{h_right}</td>
-                    </tr>
-                </table>
-
-                <div style="text-align: center; margin-top: 18px; margin-bottom: 14px;">
-                    <div style="font-family: 'Times New Roman'; font-size: 15pt; font-weight: bold;">{doc_type}</div>
-                    <div style="font-family: 'Times New Roman'; font-size: 13.5pt; font-weight: bold; margin-top: 4px;">{doc_subject}</div>
-                </div>
-
-                <div style="margin-top: 12px; margin-bottom: 24px;">
-                    {body_html}
-                </div>
-
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
-                    <tr>
-                        <td width="45%" valign="top">{f_left}</td>
-                        <td width="55%" valign="top">{f_right}</td>
-                    </tr>
-                </table>
-            </body>
-            </html>
+            footer_html = f"""
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
+                <tr>
+                    <td width="45%" valign="top">{f_left}</td>
+                    <td width="55%" valign="top">{f_right}</td>
+                </tr>
+            </table>
             """
 
-            doc = QTextDocument()
-            doc.setDefaultFont(QFont("Times New Roman", 13))
-            doc.setHtml(full_html)
-            doc.print(writer)
+            css = """
+            <style>
+                body { font-family: 'Times New Roman', serif; color: #000000; font-size: 13pt; line-height: 1.3; }
+                table { border-collapse: collapse; }
+                p { margin: 4px 0; text-indent: 36px; text-align: justify; }
+            </style>
+            """
+
+            pages = getattr(self.canvas, "pages", [])
+            if not pages:
+                # Nếu không có danh sách pages, kết xuất dạng đơn lẻ
+                body_html = self.canvas.body_editor.toHtml() if hasattr(self.canvas, "body_editor") else ""
+                writer.setPageLayout(layout_portrait)
+                full_html = f"<html><head><meta charset='utf-8'>{css}</head><body>"
+                full_html += f"<table width='100%' border='0' cellpadding='0' cellspacing='0'><tr><td width='42%' valign='top'>{h_left}</td><td width='58%' valign='top'>{h_right}</td></tr></table>"
+                full_html += f"<div style='text-align: center; margin: 18px 0 14px 0;'><div style='font-size: 15pt; font-weight: bold;'>{doc_type}</div><div style='font-size: 13.5pt; font-weight: bold; margin-top: 4px;'>{doc_subject}</div></div>"
+                full_html += f"<div style='margin: 12px 0 24px 0;'>{body_html}</div>"
+                full_html += footer_html
+                full_html += "</body></html>"
+                doc = QTextDocument()
+                doc.setDefaultFont(QFont("Times New Roman", 13))
+                doc.setHtml(full_html)
+                doc.print(writer)
+                return True
+
+            total_pages = len(pages)
+            for idx, p in enumerate(pages):
+                if idx > 0:
+                    writer.newPage()
+
+                orient = getattr(p, "orientation", "portrait")
+                writer.setPageLayout(layout_landscape if orient == "landscape" else layout_portrait)
+
+                p_html = f"<html><head><meta charset='utf-8'>{css}</head><body>"
+
+                if idx == 0:
+                    # Trang 1: Khối Quốc hiệu, Cơ quan & Tiêu đề
+                    p_html += f"<table width='100%' border='0' cellpadding='0' cellspacing='0'><tr><td width='42%' valign='top'>{h_left}</td><td width='58%' valign='top'>{h_right}</td></tr></table>"
+                    p_html += f"<div style='text-align: center; margin: 18px 0 14px 0;'><div style='font-size: 15pt; font-weight: bold;'>{doc_type}</div><div style='font-size: 13.5pt; font-weight: bold; margin-top: 4px;'>{doc_subject}</div></div>"
+                else:
+                    # Trang 2+: Đánh số trang căn giữa lề trên per NĐ 30
+                    p_html += f"<div style='text-align: center; font-size: 13pt; margin-bottom: 12px;'>- {idx + 1} -</div>"
+
+                # Thân trang
+                raw_body = p.editor.toHtml()
+                p_html += f"<div style='margin: 8px 0 16px 0;'>{raw_body}</div>"
+
+                # Nếu là trang cuối cùng: Đính kèm Khối Nơi nhận & Chữ ký
+                if idx == total_pages - 1:
+                    p_html += footer_html
+
+                p_html += "</body></html>"
+
+                doc = QTextDocument()
+                doc.setDefaultFont(QFont("Times New Roman", 13))
+                doc.setHtml(p_html)
+                doc.print(writer)
+
             return True
         except Exception as e:
             print(f"[Qt PDF Export Error] {e}")

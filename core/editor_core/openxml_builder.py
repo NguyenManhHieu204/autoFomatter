@@ -13,6 +13,7 @@ import docx
 from docx.shared import Mm, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.section import WD_SECTION, WD_ORIENT
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 
@@ -281,9 +282,26 @@ class OpenXmlBuilder:
             if not t_strip:
                 continue
 
-            # Kiểm tra ngắt trang thực tế (Không in dòng chữ ra văn bản Word)
-            if any(k in t_strip.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG", "PAGE_BREAK"]):
-                doc.add_page_break()
+            # Kiểm tra ngắt trang & Section Break (Hỗ trợ xoay ngang trang tiếp theo độc lập)
+            if "[PAGE_BREAK_LANDSCAPE]" in t_strip.upper() or "[SECTION_LANDSCAPE]" in t_strip.upper():
+                new_sec = doc.add_section(WD_SECTION.NEW_PAGE)
+                new_sec.orientation = WD_ORIENT.LANDSCAPE
+                new_sec.page_width = Mm(297.0)
+                new_sec.page_height = Mm(210.0)
+                new_sec.top_margin = Mm(20.0)
+                new_sec.bottom_margin = Mm(20.0)
+                new_sec.left_margin = Mm(30.0)
+                new_sec.right_margin = Mm(15.0)
+                continue
+            elif any(k in t_strip.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG"]):
+                new_sec = doc.add_section(WD_SECTION.NEW_PAGE)
+                new_sec.orientation = WD_ORIENT.PORTRAIT
+                new_sec.page_width = Mm(210.0)
+                new_sec.page_height = Mm(297.0)
+                new_sec.top_margin = Mm(20.0)
+                new_sec.bottom_margin = Mm(20.0)
+                new_sec.left_margin = Mm(30.0)
+                new_sec.right_margin = Mm(15.0)
                 continue
 
             p = doc.add_paragraph()
@@ -328,7 +346,9 @@ class OpenXmlBuilder:
         footer_table = doc.add_table(rows=1, cols=2)
         footer_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         TableLayoutManager.make_table_borders_invisible(footer_table)
-        TableLayoutManager.set_column_widths(footer_table, [65.0, 100.0])
+        is_landscape = (doc.sections[-1].orientation == WD_ORIENT.LANDSCAPE)
+        f_widths = [95.0, 155.0] if is_landscape else [65.0, 100.0]
+        TableLayoutManager.set_column_widths(footer_table, f_widths)
 
         f_cell_left = footer_table.cell(0, 0)
         f_cell_right = footer_table.cell(0, 1)

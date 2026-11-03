@@ -226,6 +226,38 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertIn("border_type", cfg)
         dlg_tbl.close()
 
+    def test_multipage_canvas_and_landscape_sections(self):
+        """Kiểm tra phân trang rời rạc và xoay ngang trang tiếp theo độc lập"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+
+        canvas = DocumentCanvas()
+        self.assertEqual(len(canvas.pages), 1)
+        self.assertEqual(canvas.pages[0].orientation, "portrait")
+
+        # Thêm trang 2 và xoay sang khổ ngang (Landscape)
+        p2 = canvas.add_page(orientation="landscape")
+        self.assertEqual(len(canvas.pages), 2)
+        self.assertEqual(canvas.pages[0].orientation, "portrait")
+        self.assertEqual(canvas.pages[1].orientation, "landscape")
+
+        p2.editor.setText("Nội dung Phụ lục bảng biểu khổ ngang")
+        paras = canvas.get_body_paragraphs()
+        self.assertIn("[PAGE_BREAK_LANDSCAPE]", paras)
+
+        # Xuất OpenXML docx và kiểm tra 2 Section độc lập
+        meta = dict(canvas.metadata)
+        meta["body_paragraphs"] = paras
+        doc = OpenXmlBuilder.create_scaffolded_document(meta)
+        self.assertEqual(len(doc.sections), 2)
+        self.assertEqual(doc.sections[0].orientation, docx.enum.section.WD_ORIENT.PORTRAIT)
+        self.assertEqual(doc.sections[1].orientation, docx.enum.section.WD_ORIENT.LANDSCAPE)
+
+        # Xóa trang 2
+        canvas.remove_page(1)
+        self.assertEqual(len(canvas.pages), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -344,67 +344,6 @@ class MainWindow(QMainWindow):
         act_about = menu_help.addAction(get_ui_icon("info"), "Thông tin phiên bản Auto-Formatter")
         act_about.triggered.connect(self._show_about_dialog)
 
-    def _create_top_banner(self) -> QFrame:
-        """Tạo thanh thao tác nhanh đầu trang phong cách phẳng hiện đại"""
-        top_bar = QFrame()
-        top_bar.setObjectName("topBannerBar")
-        top_bar.setStyleSheet("""
-            QFrame#topBannerBar {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                padding: 6px 14px;
-            }
-        """)
-        top_layout = QHBoxLayout(top_bar)
-        top_layout.setContentsMargins(10, 4, 10, 4)
-        top_layout.setSpacing(10)
-
-        # Nhãn tiêu đề hệ thống
-        title_box = QVBoxLayout()
-        title_box.setSpacing(1)
-        lbl_brand = QLabel("Auto-Formatter")
-        lbl_brand.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
-        lbl_desc = QLabel("Soạn thảo & Chuẩn hóa thể thức văn bản (NĐ 30/2020 & HD 36-HD/VPTW)")
-        lbl_desc.setStyleSheet("color: #64748b; font-size: 11.5px;")
-        title_box.addWidget(lbl_brand)
-        title_box.addWidget(lbl_desc)
-        top_layout.addLayout(title_box)
-
-        top_layout.addStretch()
-
-        # Nút Tạo nhanh văn bản mới
-        self.btn_top_quick_create = QPushButton("Soạn thảo mới")
-        self.btn_top_quick_create.setIcon(get_ui_icon("file_word"))
-        self.btn_top_quick_create.setIconSize(QSize(16, 16))
-        self.btn_top_quick_create.setObjectName("btnPrimary")
-        self.btn_top_quick_create.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_top_quick_create.setToolTip("Khởi tạo văn bản mới với khung thể thức chuẩn (Ctrl+N)")
-        self.btn_top_quick_create.clicked.connect(self._open_quick_wizard)
-        top_layout.addWidget(self.btn_top_quick_create)
-
-        # Nút Mở Trình Soạn Thảo WYSIWYG Tích Hợp
-        self.btn_top_open_editor = QPushButton("Trình soạn thảo")
-        self.btn_top_open_editor.setIcon(get_ui_icon("edit"))
-        self.btn_top_open_editor.setIconSize(QSize(16, 16))
-        self.btn_top_open_editor.setObjectName("btnSecondary")
-        self.btn_top_open_editor.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_top_open_editor.setToolTip("Mở không gian soạn thảo văn bản A4 trực quan (F4)")
-        self.btn_top_open_editor.clicked.connect(self._open_in_embedded_editor)
-        top_layout.addWidget(self.btn_top_open_editor)
-
-        # Nút Ký số điện tử
-        self.btn_top_sign = QPushButton("Ký số (NĐ 30)")
-        self.btn_top_sign.setIcon(get_ui_icon("signature"))
-        self.btn_top_sign.setIconSize(QSize(16, 16))
-        self.btn_top_sign.setObjectName("btnSecondary")
-        self.btn_top_sign.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_top_sign.setToolTip("Ký số điện tử văn bản PDF chuẩn Nghị định 30/2020/NĐ-CP (Ctrl+K)")
-        self.btn_top_sign.clicked.connect(self._open_signature_dialog)
-        top_layout.addWidget(self.btn_top_sign)
-
-        return top_bar
-
     def _show_about_dialog(self):
         """Hiển thị hộp thoại giới thiệu phiên bản 1.2"""
         QMessageBox.about(
@@ -430,10 +369,6 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(14, 10, 14, 14)
         main_layout.setSpacing(10)
-
-        # Thanh tác vụ nhanh đầu trang (Top Action Bar)
-        top_bar = self._create_top_banner()
-        main_layout.addWidget(top_bar)
 
         # Splitter chia đôi màn hình: Trái (Đầu vào & Cấu hình) - Phải (Kết quả & Cảnh báo)
         splitter = QSplitter(Qt.Orientation.Horizontal)

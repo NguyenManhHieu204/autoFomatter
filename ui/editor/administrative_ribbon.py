@@ -166,56 +166,23 @@ class AdministrativeRibbonBar(QWidget):
     def _setup_home_tab(self):
         tab = QWidget()
         layout = QHBoxLayout(tab)
-        layout.setContentsMargins(10, 4, 10, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(12, 4, 12, 4)
+        layout.setSpacing(10)
 
-        # Nhóm Tệp & Xuất bản trực tiếp
-        file_box = QVBoxLayout()
-        file_box.setSpacing(2)
-
-        row_f1 = QHBoxLayout()
-        row_f1.setSpacing(4)
-        self.btn_ribbon_save = QToolButton()
-        self.btn_ribbon_save.setText("Lưu (.docx)")
-        self.btn_ribbon_save.setIcon(get_ui_icon("file_word"))
-        self.btn_ribbon_save.setIconSize(QSize(16, 16))
-        self.btn_ribbon_save.setStyleSheet("font-weight: 600; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe;")
-        self.btn_ribbon_save.clicked.connect(self.save_document_requested.emit)
-        row_f1.addWidget(self.btn_ribbon_save)
-
-        self.btn_ribbon_pdf = QToolButton()
-        self.btn_ribbon_pdf.setText("Xuất PDF")
-        self.btn_ribbon_pdf.setIcon(get_ui_icon("file_pdf"))
-        self.btn_ribbon_pdf.setIconSize(QSize(16, 16))
-        self.btn_ribbon_pdf.setStyleSheet("font-weight: 600; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca;")
-        self.btn_ribbon_pdf.clicked.connect(self.export_pdf_requested.emit)
-        row_f1.addWidget(self.btn_ribbon_pdf)
-        file_box.addLayout(row_f1)
-
-        self.btn_ribbon_sign = QToolButton()
-        self.btn_ribbon_sign.setText("Ký số điện tử (NĐ 30)")
-        self.btn_ribbon_sign.setIcon(get_ui_icon("digital_sign"))
-        self.btn_ribbon_sign.setIconSize(QSize(16, 16))
-        self.btn_ribbon_sign.setStyleSheet("font-weight: 600; color: #7c3aed; background: #f5f3ff; border: 1px solid #ddd6fe;")
-        self.btn_ribbon_sign.clicked.connect(self.sign_document_requested.emit)
-        file_box.addWidget(self.btn_ribbon_sign)
-
-        layout.addLayout(file_box)
-        layout.addWidget(self._create_separator())
-
-        # Phông chữ
+        # 1. Nhóm Phông chữ & Cỡ chữ (Typography)
         font_box = QVBoxLayout()
-        font_box.setSpacing(3)
+        font_box.setSpacing(4)
 
         row_pickers = QHBoxLayout()
+        row_pickers.setSpacing(6)
         self.cb_font_family = QComboBox()
         self.cb_font_family.addItems(["Times New Roman", "Arial", "Calibri"])
-        self.cb_font_family.setFixedWidth(140)
+        self.cb_font_family.setFixedWidth(170)
         self.cb_font_family.currentTextChanged.connect(self.font_family_changed.emit)
         row_pickers.addWidget(self.cb_font_family)
 
         self.cb_font_size = QComboBox()
-        self.cb_font_size.setFixedWidth(54)
+        self.cb_font_size.setFixedWidth(65)
         for s in [10, 11, 12, 13, 14, 15, 16, 18, 20]:
             self.cb_font_size.addItem(str(s))
         self.cb_font_size.setCurrentText("13")
@@ -224,6 +191,7 @@ class AdministrativeRibbonBar(QWidget):
         font_box.addLayout(row_pickers)
 
         row_styles = QHBoxLayout()
+        row_styles.setSpacing(4)
         self.btn_bold = QToolButton()
         self.btn_bold.setText("B")
         self.btn_bold.setCheckable(True)
@@ -260,11 +228,12 @@ class AdministrativeRibbonBar(QWidget):
         layout.addLayout(font_box)
         layout.addWidget(self._create_separator())
 
-        # Căn lề & Giãn dòng
+        # 2. Nhóm Căn lề & Giãn dòng (Paragraph)
         para_box = QVBoxLayout()
-        para_box.setSpacing(3)
+        para_box.setSpacing(4)
 
         row_align = QHBoxLayout()
+        row_align.setSpacing(4)
         self.btn_left = QToolButton()
         self.btn_left.setIcon(get_ui_icon("align_left"))
         self.btn_left.setIconSize(QSize(16, 16))
@@ -296,12 +265,13 @@ class AdministrativeRibbonBar(QWidget):
         para_box.addLayout(row_align)
 
         row_spacing = QHBoxLayout()
+        row_spacing.setSpacing(6)
         lbl_sp = QLabel("Giãn dòng:")
-        lbl_sp.setStyleSheet("font-size: 11px; color: #64748b;")
+        lbl_sp.setStyleSheet("font-size: 11.5px; color: #475569;")
         row_spacing.addWidget(lbl_sp)
 
         self.cb_line_spacing = QComboBox()
-        self.cb_line_spacing.setFixedWidth(56)
+        self.cb_line_spacing.setFixedWidth(70)
         self.cb_line_spacing.addItems(["1.0", "1.15", "1.2", "1.25", "1.5"])
         self.cb_line_spacing.setCurrentText("1.2")
         self.cb_line_spacing.currentTextChanged.connect(self._on_line_spacing_changed)
@@ -316,16 +286,16 @@ class AdministrativeRibbonBar(QWidget):
         layout.addLayout(para_box)
         layout.addWidget(self._create_separator())
 
-        # Danh sách
+        # 3. Nhóm Danh sách (Lists)
         list_box = QVBoxLayout()
-        list_box.setSpacing(3)
+        list_box.setSpacing(4)
         btn_bullet = QToolButton()
-        btn_bullet.setText("Gạch đầu dòng")
+        btn_bullet.setText("Gạch đầu dòng (-)")
         btn_bullet.clicked.connect(self.bullet_list_triggered.emit)
         list_box.addWidget(btn_bullet)
 
         btn_num = QToolButton()
-        btn_num.setText("Đánh số tự động")
+        btn_num.setText("Đánh số tự động (1, 2, 3)")
         btn_num.clicked.connect(self.numbered_list_triggered.emit)
         list_box.addWidget(btn_num)
         layout.addLayout(list_box)
