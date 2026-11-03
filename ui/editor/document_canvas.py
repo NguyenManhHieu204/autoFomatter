@@ -64,24 +64,26 @@ class DocumentCanvas(QWidget):
         main_layout.setContentsMargins(40, 20, 40, 30)
         main_layout.setSpacing(10)
 
-        # Thanh tiện ích sửa nhanh thể thức nằm ngay phía trên trang giấy
+        # Thanh tiện ích tối giản phía trên trang giấy
         top_ctrl_bar = QHBoxLayout()
+        lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Lề: 20-20-30-15 mm")
+        lbl_page_info.setStyleSheet("color: #64748b; font-size: 11.5px;")
+        top_ctrl_bar.addWidget(lbl_page_info)
         top_ctrl_bar.addStretch()
 
-        self.btn_edit_meta = QPushButton("✏️ Chỉnh sửa Thông tin Thể thức (Cơ quan, Địa danh, Nơi nhận, Ký tên... [F2])")
+        self.btn_edit_meta = QPushButton("Sửa thể thức (F2)")
         self.btn_edit_meta.setIcon(get_ui_icon("edit"))
         self.btn_edit_meta.setStyleSheet("""
             QPushButton {
-                background-color: #eff6ff; color: #1e40af; font-weight: bold;
-                border: 1px solid #bfdbfe; border-radius: 5px;
-                padding: 6px 14px; font-size: 11.5px;
+                background-color: #ffffff; color: #1e293b; font-weight: 500;
+                border: 1px solid #cbd5e1; border-radius: 4px;
+                padding: 4px 10px; font-size: 11.5px;
             }
-            QPushButton:hover { background-color: #dbeafe; border-color: #3b82f6; }
+            QPushButton:hover { background-color: #f1f5f9; border-color: #94a3b8; }
         """)
-        self.btn_edit_meta.setToolTip("Mở hộp thoại chỉnh sửa toàn bộ các trường thông tin thể thức pháp lý (Phím tắt F2)")
+        self.btn_edit_meta.setToolTip("Chỉnh sửa Địa danh, Cơ quan, Nơi nhận, Người ký (Phím tắt F2)")
         self.btn_edit_meta.clicked.connect(self.open_metadata_editor)
         top_ctrl_bar.addWidget(self.btn_edit_meta)
-        top_ctrl_bar.addStretch()
 
         main_layout.addLayout(top_ctrl_bar)
 
@@ -105,8 +107,10 @@ class DocumentCanvas(QWidget):
         # 1. KHUNG HEADER THỂ THỨC (QUỐC HIỆU & CƠ QUAN)
         self.header_frame = QFrame()
         self.header_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.header_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Cơ quan, Quốc hiệu, Số hiệu, Địa danh...")
+        self.header_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Cơ quan, Quốc hiệu, Số hiệu, Địa danh (Phím F2)")
         self.header_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
+        self.header_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.header_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
         self.header_frame.setStyleSheet("""
             QFrame {
                 background-color: #f8fafc;
@@ -133,8 +137,10 @@ class DocumentCanvas(QWidget):
         # 2. KHUNG TIÊU ĐỀ LOẠI VĂN BẢN VÀ TRÍCH YẾU
         self.title_frame = QFrame()
         self.title_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.title_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Loại văn bản và Trích yếu...")
+        self.title_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Loại văn bản và Trích yếu (Phím F2)")
         self.title_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
+        self.title_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.title_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
         title_layout = QVBoxLayout(self.title_frame)
         title_layout.setContentsMargins(0, 8, 0, 8)
         title_layout.setSpacing(2)
@@ -173,8 +179,10 @@ class DocumentCanvas(QWidget):
         # 4. KHUNG FOOTER THỂ THỨC (NƠI NHẬN & CHỮ KÝ)
         self.footer_frame = QFrame()
         self.footer_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.footer_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Nơi nhận và Khối ký ban hành...")
+        self.footer_frame.setToolTip("Nhấp đúp chuột để chỉnh sửa Nơi nhận và Khối ký ban hành (Phím F2)")
         self.footer_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
+        self.footer_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.footer_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
         self.footer_frame.setStyleSheet("""
             QFrame {
                 background-color: #f8fafc;
@@ -323,41 +331,41 @@ class DocumentCanvas(QWidget):
 
         if table:
             menu.addSeparator()
-            tbl_menu = menu.addMenu(get_ui_icon("table"), "Bảng biểu (Table Actions)")
+            tbl_menu = menu.addMenu(get_ui_icon("table"), "Bảng biểu")
 
-            act_row_above = tbl_menu.addAction("➕ Thêm hàng phía trên")
+            act_row_above = tbl_menu.addAction("Thêm hàng phía trên")
             act_row_above.triggered.connect(self.insert_table_row_above)
 
-            act_row_below = tbl_menu.addAction("➕ Thêm hàng phía dưới")
+            act_row_below = tbl_menu.addAction("Thêm hàng phía dưới")
             act_row_below.triggered.connect(self.insert_table_row_below)
 
-            act_del_row = tbl_menu.addAction("❌ Xóa hàng hiện tại")
+            act_del_row = tbl_menu.addAction("Xóa hàng hiện tại")
             act_del_row.triggered.connect(self.delete_table_row)
 
             tbl_menu.addSeparator()
 
-            act_col_left = tbl_menu.addAction("➕ Thêm cột bên trái")
+            act_col_left = tbl_menu.addAction("Thêm cột bên trái")
             act_col_left.triggered.connect(self.insert_table_col_left)
 
-            act_col_right = tbl_menu.addAction("➕ Thêm cột bên phải")
+            act_col_right = tbl_menu.addAction("Thêm cột bên phải")
             act_col_right.triggered.connect(self.insert_table_col_right)
 
-            act_del_col = tbl_menu.addAction("❌ Xóa cột hiện tại")
+            act_del_col = tbl_menu.addAction("Xóa cột hiện tại")
             act_del_col.triggered.connect(self.delete_table_col)
 
             tbl_menu.addSeparator()
 
-            act_merge = tbl_menu.addAction("🔲 Trộn các ô đang chọn")
+            act_merge = tbl_menu.addAction("Trộn ô đang chọn")
             act_merge.triggered.connect(self.merge_table_cells)
 
-            act_split = tbl_menu.addAction("✂ Tách ô")
+            act_split = tbl_menu.addAction("Tách ô")
             act_split.triggered.connect(self.split_table_cell)
 
-            act_del_tbl = tbl_menu.addAction("🗑️ Xóa toàn bộ bảng")
+            act_del_tbl = tbl_menu.addAction("Xóa toàn bộ bảng")
             act_del_tbl.triggered.connect(self.delete_current_table)
 
         menu.addSeparator()
-        act_meta = menu.addAction(get_ui_icon("edit"), "✏️ Sửa Thông tin Thể thức (F2)...")
+        act_meta = menu.addAction(get_ui_icon("edit"), "Sửa thể thức (F2)...")
         act_meta.triggered.connect(self.open_metadata_editor)
 
         menu.exec(self.body_editor.mapToGlobal(pos))
@@ -573,9 +581,9 @@ class DocumentCanvas(QWidget):
     def insert_page_break(self):
         cursor = self.body_editor.textCursor()
         page_break_html = """
-        <div style='margin: 22px 0; text-align: center; border-top: 2px dashed #2563eb; border-bottom: 2px dashed #2563eb; padding: 6px 0; background-color: #eff6ff;'>
-            <span style='color: #1d4ed8; font-weight: bold; font-size: 11pt; font-family: Segoe UI, Arial, sans-serif;'>
-                📄 —————————————————— NGẮT TRANG (PAGE BREAK) ——————————————————
+        <div style='margin: 18px 0; text-align: center; border-top: 1px dashed #94a3b8; border-bottom: 1px dashed #94a3b8; padding: 4px 0;'>
+            <span style='color: #64748b; font-size: 11px; font-weight: 500; font-family: Segoe UI, Arial, sans-serif;'>
+                --- NGẮT TRANG (PAGE BREAK) ---
             </span>
         </div>
         <p style='text-indent: 36px;'><br/></p>

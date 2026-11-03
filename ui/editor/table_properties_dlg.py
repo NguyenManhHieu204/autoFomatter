@@ -17,11 +17,11 @@ class TablePropertiesDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Chèn Bảng biểu Hành chính")
-        self.resize(450, 390)
-        self.setMinimumSize(400, 360)
+        self.resize(440, 360)
+        self.setMinimumSize(380, 320)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(12)
 
         # 1. Kích thước bảng
@@ -36,8 +36,7 @@ class TablePropertiesDialog(QDialog):
         self.sp_rows = QSpinBox()
         self.sp_rows.setRange(1, 100)
         self.sp_rows.setValue(4)
-        self.sp_rows.setMinimumHeight(28)
-        self.sp_rows.setMinimumWidth(90)
+        self.sp_rows.setMinimumWidth(80)
         row_layout.addWidget(self.sp_rows)
         row_layout.addStretch()
 
@@ -48,8 +47,7 @@ class TablePropertiesDialog(QDialog):
         self.sp_cols = QSpinBox()
         self.sp_cols.setRange(1, 15)
         self.sp_cols.setValue(3)
-        self.sp_cols.setMinimumHeight(28)
-        self.sp_cols.setMinimumWidth(90)
+        self.sp_cols.setMinimumWidth(80)
         col_layout.addWidget(self.sp_cols)
         col_layout.addStretch()
 
@@ -60,13 +58,11 @@ class TablePropertiesDialog(QDialog):
         # 2. Kiểu viền khung
         border_group = QGroupBox("Đường viền thể thức")
         border_layout = QVBoxLayout(border_group)
-        border_layout.setSpacing(6)
+        border_layout.setSpacing(8)
 
         self.rb_grid = QRadioButton("Viền khung lưới chuẩn văn thư (1/2 pt)")
-        self.rb_grid.setMinimumHeight(26)
         self.rb_grid.setChecked(True)
         self.rb_none = QRadioButton("Bảng ẩn viền (Dùng định vị Quốc hiệu / Chữ ký)")
-        self.rb_none.setMinimumHeight(26)
 
         self.border_group = QButtonGroup(self)
         self.border_group.addButton(self.rb_grid, 0)
@@ -79,13 +75,11 @@ class TablePropertiesDialog(QDialog):
         # 3. Tùy chọn bảo vệ nhiều trang
         protect_group = QGroupBox("Bảo vệ trang in")
         protect_layout = QVBoxLayout(protect_group)
-        protect_layout.setSpacing(6)
+        protect_layout.setSpacing(8)
 
         self.chk_header = QCheckBox("Lặp lại hàng tiêu đề trên từng trang (tblHeader)")
-        self.chk_header.setMinimumHeight(26)
         self.chk_header.setChecked(True)
         self.chk_cant_split = QCheckBox("Chống bẻ đôi hàng qua 2 trang (cantSplit)")
-        self.chk_cant_split.setMinimumHeight(26)
         self.chk_cant_split.setChecked(True)
 
         protect_layout.addWidget(self.chk_header)

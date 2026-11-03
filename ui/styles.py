@@ -1,13 +1,17 @@
 """
-ui/styles.py: Bộ giao diện QSS chuyên nghiệp cho ứng dụng Auto-Formatter
-Phong cách: Administrative Modern - Sang trọng, chuẩn mực cơ quan Nhà nước và Đảng
+ui/styles.py: Bộ giao diện giao diện phẳng hiện đại (Clean Minimalist Modern UI)
+Thiết kế theo chuẩn mực ứng dụng văn phòng cao cấp (Windows 11 Fluent / macOS Modern)
+- Bảng màu trung tính tinh tế, độ tương phản sắc nét
+- Loại bỏ hiệu ứng đổ bóng cồng kềnh, gradient sặc sỡ và phong cách AI-slop
+- Tối ưu hóa hiển thị trên màn hình độ phân giải cao (High-DPI), không cắt chữ
 """
 
 MAIN_STYLE = """
+/* Reset & Base Typography */
 QWidget {
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     font-size: 13px;
-    color: #1e293b;
+    color: #0f172a;
     background-color: #f8fafc;
 }
 
@@ -15,121 +19,184 @@ QMainWindow {
     background-color: #f1f5f9;
 }
 
-/* Header Banner */
-#headerBanner {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0f172a, stop:0.5 #1e3a8a, stop:1 #b91c1c);
-    border-radius: 8px;
-    padding: 16px;
-    color: white;
-}
-
-#headerTitle {
-    font-size: 18px;
-    font-weight: bold;
-    color: #ffffff;
-}
-
-#headerSubtitle {
+/* Menu Bar Hiện Đại & Tối Giản */
+QMenuBar {
+    background-color: #ffffff;
+    color: #1e293b;
     font-size: 12px;
-    color: #cbd5e1;
+    padding: 3px 8px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-/* GroupBox Card */
-QGroupBox {
-    font-weight: bold;
-    font-size: 13px;
+QMenuBar::item {
+    background-color: transparent;
+    padding: 5px 12px;
+    border-radius: 4px;
+}
+
+QMenuBar::item:selected {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+QMenu {
+    background-color: #ffffff;
     color: #0f172a;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+    border-radius: 4px;
+}
+
+QMenu::item:selected {
+    background-color: #f1f5f9;
+    color: #2563eb;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #e2e8f0;
+    margin: 4px 6px;
+}
+
+/* Khung nhóm GroupBox Tinh Gọn */
+QGroupBox {
+    font-weight: 600;
+    font-size: 12px;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
     margin-top: 14px;
     background-color: #ffffff;
-    padding-top: 14px;
+    padding: 14px 12px 10px 12px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    left: 14px;
-    padding: 0 6px;
+    left: 12px;
+    padding: 0 4px;
     background-color: #ffffff;
 }
 
-/* Drag & Drop Zone */
+/* Vùng Kéo & Thả (Drop Zone) */
 #dropZone {
-    border: 2px dashed #94a3b8;
-    border-radius: 10px;
-    background-color: #f8fafc;
-    min-height: 110px;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 8px;
+    background-color: #ffffff;
+    min-height: 105px;
 }
 
 #dropZone:hover {
-    border-color: #2563eb;
-    background-color: #eff6ff;
+    border-color: #3b82f6;
+    background-color: #f8fafc;
 }
 
-/* Buttons */
+/* Nút bấm Chuẩn mực (Buttons) */
 QPushButton {
-    background-color: #2563eb;
-    color: white;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    min-height: 20px;
+    background-color: #ffffff;
+    color: #0f172a;
+    font-weight: 500;
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 6px 14px;
+    min-height: 22px;
 }
 
 QPushButton:hover {
-    background-color: #1d4ed8;
-}
-
-QPushButton:pressed {
-    background-color: #1e40af;
-}
-
-QPushButton:disabled {
-    background-color: #94a3b8;
-    color: #e2e8f0;
-}
-
-/* Secondary Button */
-QPushButton#btnSecondary {
-    background-color: #ffffff;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-}
-
-QPushButton#btnSecondary:hover {
-    background-color: #f1f5f9;
+    background-color: #f8fafc;
     border-color: #94a3b8;
 }
 
-/* Big Run Button */
+QPushButton:pressed {
+    background-color: #f1f5f9;
+}
+
+QPushButton:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+}
+
+/* Nút chính (Primary Action) */
+QPushButton#btnPrimary, QPushButton.btn-primary {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: 1px solid #1d4ed8;
+    font-weight: 600;
+}
+
+QPushButton#btnPrimary:hover, QPushButton.btn-primary:hover {
+    background-color: #1d4ed8;
+}
+
+QPushButton#btnPrimary:pressed, QPushButton.btn-primary:pressed {
+    background-color: #1e40af;
+}
+
+/* Nút Chạy Chuẩn hóa Lớn */
 QPushButton#btnRun {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #16a34a, stop:1 #15803d);
-    color: white;
-    font-size: 15px;
-    font-weight: bold;
-    padding: 12px 24px;
-    border-radius: 8px;
+    background-color: #16a34a;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border: 1px solid #15803d;
+    border-radius: 6px;
 }
 
 QPushButton#btnRun:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #15803d, stop:1 #166534);
+    background-color: #15803d;
 }
 
-/* Input Fields & Controls */
-QLineEdit, QComboBox, QSpinBox {
+QPushButton#btnRun:pressed {
+    background-color: #166534;
+}
+
+/* Nút Dừng */
+QPushButton#btnCancel {
+    background-color: #ffffff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+QPushButton#btnCancel:hover {
+    background-color: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* Ô nhập liệu & Dropdown & SpinBox */
+QLineEdit {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 4px 8px;
     min-height: 26px;
     color: #0f172a;
-    font-size: 13px;
+    font-size: 12px;
 }
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-    border-color: #2563eb;
+QLineEdit:focus {
+    border-color: #3b82f6;
+}
+
+QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 26px 4px 8px;
+    min-height: 26px;
+    color: #0f172a;
+    font-size: 12px;
+}
+
+QComboBox:focus {
+    border-color: #3b82f6;
 }
 
 QComboBox::drop-down {
@@ -137,91 +204,104 @@ QComboBox::drop-down {
     subcontrol-position: top right;
     width: 22px;
     border-left: 1px solid #cbd5e1;
-    border-top-right-radius: 5px;
-    border-bottom-right-radius: 5px;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
 }
 
 QComboBox QAbstractItemView {
     background-color: #ffffff;
     color: #0f172a;
     border: 1px solid #cbd5e1;
-    selection-background-color: #2563eb;
-    selection-color: #ffffff;
+    selection-background-color: #f1f5f9;
+    selection-color: #2563eb;
     padding: 4px;
 }
 
 QSpinBox {
-    padding-right: 18px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 3px 6px;
+    min-height: 26px;
+    color: #0f172a;
+    font-size: 12px;
 }
 
+QSpinBox:focus {
+    border-color: #3b82f6;
+}
+
+/* Radio Button & Checkbox - Không giới hạn min-height để tránh cắt chữ trên High-DPI */
 QRadioButton, QCheckBox {
     spacing: 8px;
-    font-size: 13px;
+    font-size: 12px;
     color: #1e293b;
-    min-height: 22px;
+    background: transparent;
+    padding: 2px 0;
 }
 
 QRadioButton::indicator, QCheckBox::indicator {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
 }
 
-/* Table Widget */
+/* Bảng dữ liệu */
 QTableWidget {
     background-color: #ffffff;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
     gridline-color: #f1f5f9;
-    selection-background-color: #dbeafe;
+    selection-background-color: #eff6ff;
     selection-color: #1e3a8a;
 }
 
 QHeaderView::section {
     background-color: #f8fafc;
     color: #475569;
-    font-weight: bold;
+    font-weight: 600;
     font-size: 12px;
-    padding: 8px;
+    padding: 7px 10px;
     border: none;
-    border-bottom: 1px solid #cbd5e1;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-/* Progress Bar */
+/* Thanh tiến trình */
 QProgressBar {
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
     text-align: center;
-    background-color: #e2e8f0;
-    height: 18px;
+    background-color: #f1f5f9;
+    height: 14px;
     color: #0f172a;
-    font-weight: bold;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 QProgressBar::chunk {
     background-color: #2563eb;
-    border-radius: 5px;
+    border-radius: 3px;
 }
 
-/* Stat Cards Hiện Đại & Tương Tác */
+/* Thẻ thống kê Tinh giản (Stat Cards) */
 QFrame#statCard {
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: 6px;
+    padding: 6px 12px;
 }
 
 QFrame#statCard:hover {
-    border-color: #3b82f6;
-    background-color: #f0f7ff;
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
 }
 
 QFrame#statCard[active="true"] {
-    border: 2px solid #2563eb;
+    border: 1.5px solid #2563eb;
     background-color: #eff6ff;
 }
 
 QLabel#statValue {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     color: #0f172a;
 }
@@ -229,6 +309,6 @@ QLabel#statValue {
 QLabel#statTitle {
     font-size: 11px;
     color: #64748b;
-    font-weight: 600;
+    font-weight: 500;
 }
 """

@@ -85,57 +85,45 @@ class WordEditorWindow(QMainWindow):
         # Kết nối các sự kiện tương tác
         self._connect_signals()
 
+        # Nạp tệp hiện có nếu được chỉ định
+        if self.current_file_path and os.path.exists(self.current_file_path):
+            self._load_document_from_file(self.current_file_path)
+
     def _setup_top_action_bar(self, parent_layout: QVBoxLayout):
         """Thanh tiêu đề chứa các nút hành động cốt lõi: Lưu DOCX, Xuất PDF, Ký số ngay"""
         bar = QFrame()
-        bar.setFixedHeight(48)
-        bar.setStyleSheet("background-color: #1e293b; border-bottom: 1px solid #0f172a;")
+        bar.setFixedHeight(42)
+        bar.setStyleSheet("background-color: #ffffff; border-bottom: 1px solid #e2e8f0;")
         bar_layout = QHBoxLayout(bar)
-        bar_layout.setContentsMargins(16, 6, 16, 6)
-        bar_layout.setSpacing(10)
+        bar_layout.setContentsMargins(14, 4, 14, 4)
+        bar_layout.setSpacing(8)
 
-        lbl_app = QLabel("SOẠN THẢO VĂN BẢN (WYSIWYG)")
-        lbl_app.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 13px; letter-spacing: 0.5px;")
-        bar_layout.addWidget(lbl_app)
+        # Tiêu đề tài liệu
+        doc_title = "Trình soạn thảo văn bản hành chính"
+        if self.current_file_path:
+            doc_title = os.path.basename(self.current_file_path)
+        self.lbl_doc_title = QLabel(doc_title)
+        self.lbl_doc_title.setStyleSheet("color: #0f172a; font-weight: 600; font-size: 13px;")
+        bar_layout.addWidget(self.lbl_doc_title)
 
         bar_layout.addStretch()
 
         # Nút Lưu file DOCX
-        self.btn_save = QPushButton("Lưu tệp (.docx)")
+        self.btn_save = QPushButton("Lưu (.docx)")
         self.btn_save.setIcon(get_ui_icon("file_word"))
-        self.btn_save.setStyleSheet("""
-            QPushButton {
-                background-color: #2563eb; color: white; font-weight: bold;
-                padding: 6px 14px; border-radius: 4px; border: none; font-size: 12px;
-            }
-            QPushButton:hover { background-color: #1d4ed8; }
-        """)
+        self.btn_save.setObjectName("btnPrimary")
         self.btn_save.clicked.connect(self._save_document)
         bar_layout.addWidget(self.btn_save)
 
         # Nút Xuất PDF
         self.btn_export_pdf = QPushButton("Xuất PDF")
         self.btn_export_pdf.setIcon(get_ui_icon("file_pdf"))
-        self.btn_export_pdf.setStyleSheet("""
-            QPushButton {
-                background-color: #dc2626; color: white; font-weight: bold;
-                padding: 6px 14px; border-radius: 4px; border: none; font-size: 12px;
-            }
-            QPushButton:hover { background-color: #b91c1c; }
-        """)
         self.btn_export_pdf.clicked.connect(self._export_pdf)
         bar_layout.addWidget(self.btn_export_pdf)
 
         # Nút Ký số ngay
-        self.btn_sign = QPushButton("Ký số ngay (NĐ 30)")
+        self.btn_sign = QPushButton("Ký số (NĐ 30)")
         self.btn_sign.setIcon(get_ui_icon("digital_sign"))
-        self.btn_sign.setStyleSheet("""
-            QPushButton {
-                background-color: #7c3aed; color: white; font-weight: bold;
-                padding: 6px 16px; border-radius: 4px; border: none; font-size: 12px;
-            }
-            QPushButton:hover { background-color: #6d28d9; }
-        """)
         self.btn_sign.clicked.connect(self._sign_document_now)
         bar_layout.addWidget(self.btn_sign)
 
@@ -143,14 +131,14 @@ class WordEditorWindow(QMainWindow):
 
     def _setup_status_bar(self):
         status = QStatusBar()
-        status.setStyleSheet("background-color: #f1f5f9; color: #475569; font-size: 12px; border-top: 1px solid #cbd5e1;")
+        status.setStyleSheet("background-color: #ffffff; color: #475569; font-size: 11.5px; border-top: 1px solid #e2e8f0;")
         self.setStatusBar(status)
 
         self.lbl_cursor_pos = QLabel("Dòng: 1, Cột: 1")
         status.addWidget(self.lbl_cursor_pos)
 
-        self.lbl_compliance_badge = QLabel("✔ Khung Thể thức: Đã Khóa Bảo vệ (NĐ 30 / HD 36)")
-        self.lbl_compliance_badge.setStyleSheet("color: #15803d; font-weight: 600; margin-left: 20px;")
+        self.lbl_compliance_badge = QLabel("Chuẩn thể thức: Đã khóa bảo vệ (NĐ 30 / HD 36)")
+        self.lbl_compliance_badge.setStyleSheet("color: #16a34a; font-weight: 500; margin-left: 20px;")
         status.addWidget(self.lbl_compliance_badge)
 
         # Thanh trượt Zoom
@@ -281,6 +269,21 @@ class WordEditorWindow(QMainWindow):
                     os.remove(temp_docx)
                 except Exception:
                     pass
+
+    def _load_document_from_file(self, file_path: str):
+        """Nạp nội dung từ tệp docx vào trình soạn thảo"""
+        try:
+            import docx
+            doc = docx.Document(file_path)
+            html_parts = []
+            for p in doc.paragraphs:
+                txt = p.text.strip()
+                if txt:
+                    html_parts.append(f"<p style='text-indent: 36px; margin: 4px 0;'>{txt}</p>")
+            if html_parts:
+                self.canvas.body_editor.setHtml("".join(html_parts))
+        except Exception:
+            pass
 
     def _build_docx_object(self):
         """Đóng gói dữ liệu Canvas hiện tại thành tài liệu docx chuẩn hóa"""
