@@ -10,7 +10,7 @@ Thiết kế tối giản, hiện đại, tái lập trải nghiệm văn phòng
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QComboBox, QToolButton, QLabel, QFrame, QButtonGroup,
-    QColorDialog
+    QColorDialog, QMenu
 )
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtCore import Qt, pyqtSignal, QSize

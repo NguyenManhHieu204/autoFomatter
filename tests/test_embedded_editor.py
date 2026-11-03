@@ -308,6 +308,22 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertAlmostEqual(fmt.bottomMargin(), 6.0 * 1.333, delta=0.5)
         self.assertAlmostEqual(fmt.textIndent(), 37.795, delta=1.0)
 
+    def test_word_editor_window_and_ribbon_initialization(self):
+        """Đảm bảo khởi tạo WordEditorWindow và AdministrativeRibbonBar thành công không lỗi NameError QMenu"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.administrative_ribbon import AdministrativeRibbonBar
+        from ui.editor.word_editor_window import WordEditorWindow
+
+        ribbon = AdministrativeRibbonBar()
+        self.assertIsNotNone(ribbon.btn_first_line.menu())
+        self.assertIsNotNone(ribbon.btn_paragraph_spacing.menu())
+
+        editor_win = WordEditorWindow(None)
+        self.assertIsNotNone(editor_win.ribbon)
+        self.assertIsNotNone(editor_win.canvas)
+        editor_win.close()
+
 
 if __name__ == "__main__":
     unittest.main()
