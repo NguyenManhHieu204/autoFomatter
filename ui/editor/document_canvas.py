@@ -67,8 +67,8 @@ class DocumentCanvas(QWidget):
         # Bố cục trang giấy A4 căn giữa hoàn hảo
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        main_layout.setContentsMargins(40, 16, 40, 30)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(0, 18, 0, 36)
+        main_layout.setSpacing(12)
 
         # Thanh tiện ích phía trên trang giấy (Rộng đúng bằng khổ trang A4 và căn giữa)
         self.top_ctrl_widget = QWidget()
@@ -76,7 +76,7 @@ class DocumentCanvas(QWidget):
         top_ctrl_bar = QHBoxLayout(self.top_ctrl_widget)
         top_ctrl_bar.setContentsMargins(0, 0, 0, 0)
 
-        lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Lề: 20-20-30-15 mm • Chuẩn Cấp Xã")
+        lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Lề: 20-20-30-15 mm • Chuẩn Thể thức Cấp Xã")
         lbl_page_info.setStyleSheet("color: #64748b; font-size: 11.5px;")
         top_ctrl_bar.addWidget(lbl_page_info)
         top_ctrl_bar.addStretch()
@@ -86,10 +86,10 @@ class DocumentCanvas(QWidget):
         self.btn_edit_meta.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff; color: #1e293b; font-weight: 500;
-                border: 1px solid #cbd5e1; border-radius: 4px;
-                padding: 4px 12px; font-size: 11.5px;
+                border: 1.5px solid #cbd5e1; border-radius: 4px;
+                padding: 5px 14px; font-size: 12px;
             }
-            QPushButton:hover { background-color: #f1f5f9; border-color: #94a3b8; }
+            QPushButton:hover { background-color: #eff6ff; border-color: #2563eb; color: #1d4ed8; }
         """)
         self.btn_edit_meta.setToolTip("Chỉnh sửa Địa danh, Cơ quan, Nơi nhận, Người ký (Phím tắt F2)")
         self.btn_edit_meta.clicked.connect(self.open_metadata_editor)
@@ -115,6 +115,21 @@ class DocumentCanvas(QWidget):
         sheet_layout.setContentsMargins(113, 76, 57, 76)
         sheet_layout.setSpacing(6)
 
+        # Style chung cho các khung thể thức trên nền giấy trắng:
+        # Bình thường hoàn toàn trong suốt như trang in thật; hover lên sẽ hiện viền định vị xanh nhạt
+        frame_hover_style = """
+            QFrame {
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QFrame:hover {
+                background-color: #f8fafc;
+                border: 1px dashed #93c5fd;
+            }
+        """
+
         # 1. KHUNG HEADER THỂ THỨC (QUỐC HIỆU & CƠ QUAN)
         self.header_frame = QFrame()
         self.header_frame.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -122,25 +137,18 @@ class DocumentCanvas(QWidget):
         self.header_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         self.header_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.header_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
-        self.header_frame.setStyleSheet("""
-            QFrame {
-                background-color: #f8fafc;
-                border: 1px dashed #94a3b8;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
+        self.header_frame.setStyleSheet(frame_hover_style)
         header_layout = QHBoxLayout(self.header_frame)
-        header_layout.setContentsMargins(6, 6, 6, 6)
+        header_layout.setContentsMargins(4, 4, 4, 4)
 
         self.lbl_header_left = QLabel()
         self.lbl_header_left.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_header_left.setStyleSheet("color: #0f172a; font-family: 'Times New Roman';")
+        self.lbl_header_left.setStyleSheet("color: #0f172a; font-family: 'Times New Roman'; background: transparent;")
         header_layout.addWidget(self.lbl_header_left, 1)
 
         self.lbl_header_right = QLabel()
         self.lbl_header_right.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_header_right.setStyleSheet("color: #0f172a; font-family: 'Times New Roman';")
+        self.lbl_header_right.setStyleSheet("color: #0f172a; font-family: 'Times New Roman'; background: transparent;")
         header_layout.addWidget(self.lbl_header_right, 1)
 
         sheet_layout.addWidget(self.header_frame)
@@ -152,18 +160,19 @@ class DocumentCanvas(QWidget):
         self.title_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         self.title_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.title_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
+        self.title_frame.setStyleSheet(frame_hover_style)
         title_layout = QVBoxLayout(self.title_frame)
         title_layout.setContentsMargins(0, 8, 0, 8)
         title_layout.setSpacing(2)
 
         self.lbl_doc_type = QLabel("QUYẾT ĐỊNH")
         self.lbl_doc_type.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_doc_type.setStyleSheet("font-family: 'Times New Roman'; font-size: 15pt; font-weight: bold; color: #0f172a;")
+        self.lbl_doc_type.setStyleSheet("font-family: 'Times New Roman'; font-size: 15pt; font-weight: bold; color: #0f172a; background: transparent;")
         title_layout.addWidget(self.lbl_doc_type)
 
         self.lbl_doc_subject = QLabel("Về việc phê duyệt kế hoạch chuyển đổi số năm 2026")
         self.lbl_doc_subject.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_doc_subject.setStyleSheet("font-family: 'Times New Roman'; font-size: 13.5pt; font-weight: bold; color: #1e293b;")
+        self.lbl_doc_subject.setStyleSheet("font-family: 'Times New Roman'; font-size: 13.5pt; font-weight: bold; color: #1e293b; background: transparent;")
         self.lbl_doc_subject.setWordWrap(True)
         title_layout.addWidget(self.lbl_doc_subject)
 
@@ -197,25 +206,18 @@ class DocumentCanvas(QWidget):
         self.footer_frame.mouseDoubleClickEvent = lambda e: self.open_metadata_editor()
         self.footer_frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.footer_frame.customContextMenuRequested.connect(lambda p: self.open_metadata_editor())
-        self.footer_frame.setStyleSheet("""
-            QFrame {
-                background-color: #f8fafc;
-                border: 1px dashed #94a3b8;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
+        self.footer_frame.setStyleSheet(frame_hover_style)
         footer_layout = QHBoxLayout(self.footer_frame)
-        footer_layout.setContentsMargins(6, 6, 6, 6)
+        footer_layout.setContentsMargins(4, 4, 4, 4)
 
         self.lbl_footer_left = QLabel()
         self.lbl_footer_left.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.lbl_footer_left.setStyleSheet("color: #0f172a; font-family: 'Times New Roman';")
+        self.lbl_footer_left.setStyleSheet("color: #0f172a; font-family: 'Times New Roman'; background: transparent;")
         footer_layout.addWidget(self.lbl_footer_left, 1)
 
         self.lbl_footer_right = QLabel()
         self.lbl_footer_right.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop)
-        self.lbl_footer_right.setStyleSheet("color: #0f172a; font-family: 'Times New Roman';")
+        self.lbl_footer_right.setStyleSheet("color: #0f172a; font-family: 'Times New Roman'; background: transparent;")
         footer_layout.addWidget(self.lbl_footer_right, 1)
 
         sheet_layout.addWidget(self.footer_frame)
@@ -334,11 +336,11 @@ class DocumentCanvas(QWidget):
     def _load_sample_body(self):
         sample_html = """
         <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Luật Tổ chức chính quyền địa phương ngày 19 tháng 6 năm 2015;</p>
-        <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Theo đề nghị của Chánh Văn phòng,</p>
+        <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Theo đề nghị của Công chức Văn phòng - Thống kê xã,</p>
         <p style='text-align: center; font-weight: bold; margin: 12px 0;'>QUYẾT ĐỊNH:</p>
-        <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Ban hành kèm theo Quyết định này Kế hoạch chuyển đổi số và chuẩn hóa văn bản hành chính năm 2026.</p>
+        <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Ban hành kèm theo Quyết định này Kế hoạch chuyển đổi số và chuẩn hóa thể thức văn bản hành chính năm 2026 trên địa bàn xã.</p>
         <p style='text-align: justify; text-indent: 36px;'><b>Điều 2.</b> Quyết định này có hiệu lực thi hành kể từ ngày ký.</p>
-        <p style='text-align: justify; text-indent: 36px;'><b>Điều 3.</b> Chánh Văn phòng, Thủ trưởng các cơ quan, đơn vị có liên quan chịu trách nhiệm thi hành Quyết định này./.</p>
+        <p style='text-align: justify; text-indent: 36px;'><b>Điều 3.</b> Công chức Văn phòng - Thống kê, các ban ngành đoàn thể xã và các thôn, tổ dân phố chịu trách nhiệm thi hành Quyết định này./.</p>
         """
         self.body_editor.setHtml(sample_html)
 
@@ -596,21 +598,36 @@ class DocumentCanvas(QWidget):
         if file_path:
             cursor = self.body_editor.textCursor()
             img = QPixmap(file_path)
-            # Giới hạn kích thước ảnh phù hợp chuẩn văn bản hành chính (tối đa 400 x 280)
-            max_w = 400
-            max_h = 280
+            # Giới hạn kích thước ảnh phù hợp chuẩn văn bản hành chính (tối đa 460 x 320 px)
+            max_w = 460
+            max_h = 320
             if img.width() > max_w or img.height() > max_h:
                 img = img.scaled(max_w, max_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            
+            # Căn giữa ảnh trong văn bản hành chính
+            cursor.insertBlock()
+            block_fmt = cursor.blockFormat()
+            block_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            block_fmt.setTextIndent(0)
+            cursor.setBlockFormat(block_fmt)
             cursor.insertImage(img.toImage())
+            cursor.insertBlock()
+            # Khôi phục định dạng thụt lề đầu dòng chuẩn
+            norm_fmt = cursor.blockFormat()
+            norm_fmt.setAlignment(Qt.AlignmentFlag.AlignJustify)
+            norm_fmt.setTextIndent(int(12.7 * 3.7795))
+            cursor.setBlockFormat(norm_fmt)
+
             self.body_editor.setTextCursor(cursor)
             self._adjust_sheet_height()
             self.document_modified.emit()
 
     def insert_page_break(self):
         cursor = self.body_editor.textCursor()
+        # Hiển thị vạch phân trang đồ họa thanh lịch, không hiển thị chữ thô làm hỏng văn bản
         page_break_html = """
-        <div style='margin: 12px 0; border-top: 1.5px dashed #94a3b8; text-align: right;'>
-            <span style='color: #94a3b8; font-size: 10px; font-style: italic; font-family: Segoe UI, Arial, sans-serif;'>[NGẮT TRANG]</span>
+        <div style='margin: 18px 0; border-top: 1.5px dashed #cbd5e1; text-align: center;'>
+            <span style='background-color: #f1f5f9; color: #64748b; font-size: 9pt; padding: 2px 14px; border-radius: 4px; font-family: Segoe UI, sans-serif;'>[NGẮT TRANG / PAGE BREAK]</span>
         </div>
         <p style='text-indent: 36px;'><br/></p>
         """
@@ -627,7 +644,8 @@ class DocumentCanvas(QWidget):
             line_str = line.strip()
             if not line_str:
                 continue
-            if "[NGẮT TRANG]" in line_str or "NGẮT TRANG" in line_str or "PAGE BREAK" in line_str:
+            # Nhận diện ngắt trang để sinh page break chuẩn xác trong Word
+            if any(k in line_str.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG", "[NGẮT TRANG"]):
                 paras.append("[PAGE_BREAK]")
             else:
                 paras.append(line_str)

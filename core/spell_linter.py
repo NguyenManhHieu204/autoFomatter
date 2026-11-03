@@ -368,7 +368,7 @@ class SpellLinter:
                         replacement=standard_name,
                         message=f"Quên viết hoa đúng chuẩn tên cơ quan/tổ chức '{standard_name}'",
                         context=m.group(0),
-                        severity='warning'
+                        severity='auto_fixed'
                     ))
 
         return warnings
@@ -424,9 +424,12 @@ class SpellLinter:
         # 5. Rà soát viết hoa
         cap_warnings = self.check_capitalization_warnings(text)
         all_issues.extend(cap_warnings)
-        for w in cap_warnings:
+        # Sắp xếp theo chiều dài giảm dần để cụm từ dài (vd: Thủ tướng Chính phủ) được thay trước cụm ngắn (Chính phủ)
+        sorted_cap = sorted(cap_warnings, key=lambda x: len(x.original), reverse=True)
+        for w in sorted_cap:
             if w.severity == 'auto_fixed' and w.original in text:
-                text = text.replace(w.original, w.replacement)
+                pat = re.compile(rf'(?<![A-Za-zÀ-ỹ]){re.escape(w.original)}(?![A-Za-zÀ-ỹ])')
+                text = pat.sub(w.replacement, text)
 
         return LintResult(
             cleaned_text=text,

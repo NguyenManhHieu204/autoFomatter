@@ -459,16 +459,30 @@ class MainWindow(QMainWindow):
 
         # Nút quản lý danh sách file
         file_btns_layout = QHBoxLayout()
-        self.btn_add_files = QPushButton("Thêm tệp...")
-        self.btn_add_files.setObjectName("btnSecondary")
+        self.btn_add_files = QPushButton("Thêm tệp dự thảo...")
         self.btn_add_files.setIcon(get_ui_icon("file_add"))
         self.btn_add_files.setIconSize(QSize(16, 16))
+        self.btn_add_files.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 16px; border-radius: 4px; border: 1px solid #1d4ed8;
+            }
+            QPushButton:hover { background-color: #1d4ed8; }
+            QPushButton:pressed { background-color: #1e40af; }
+        """)
         self.btn_add_files.clicked.connect(self._choose_files_dialog)
 
         self.btn_add_folder = QPushButton("Thêm thư mục...")
-        self.btn_add_folder.setObjectName("btnSecondary")
         self.btn_add_folder.setIcon(get_ui_icon("folder_add"))
         self.btn_add_folder.setIconSize(QSize(16, 16))
+        self.btn_add_folder.setStyleSheet("""
+            QPushButton {
+                background-color: #0284c7; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 16px; border-radius: 4px; border: 1px solid #0369a1;
+            }
+            QPushButton:hover { background-color: #0369a1; }
+            QPushButton:pressed { background-color: #075985; }
+        """)
         self.btn_add_folder.clicked.connect(self._choose_folder_dialog)
 
         self.btn_remove_file = QPushButton("Xóa tệp")
@@ -643,48 +657,90 @@ class MainWindow(QMainWindow):
 
         # Thanh nút thao tác trên file đã hoàn thành
         actions_layout = QHBoxLayout()
-        self.btn_run_ocr = QPushButton("Nhận dạng OCR & Chuẩn hóa")
+        self.btn_run_ocr = QPushButton("Nhận dạng & Chuẩn hóa")
         self.btn_run_ocr.setIcon(get_ui_icon("ocr_scan"))
-        self.btn_run_ocr.setIconSize(QSize(17, 17))
-        self.btn_run_ocr.setStyleSheet("background-color: #d97706; color: white; font-weight: bold;")
+        self.btn_run_ocr.setIconSize(QSize(16, 16))
+        self.btn_run_ocr.setStyleSheet("""
+            QPushButton {
+                background-color: #d97706; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1px solid #b45309;
+            }
+            QPushButton:hover { background-color: #b45309; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
         self.btn_run_ocr.setEnabled(False)
         self.btn_run_ocr.clicked.connect(self._run_ocr_on_selected_file)
 
+        self.btn_embedded_edit = QPushButton("Soạn thảo tích hợp")
+        self.btn_embedded_edit.setIcon(get_ui_icon("file_word"))
+        self.btn_embedded_edit.setIconSize(QSize(16, 16))
+        self.btn_embedded_edit.setStyleSheet("""
+            QPushButton {
+                background-color: #059669; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1px solid #047857;
+            }
+            QPushButton:hover { background-color: #047857; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
+        self.btn_embedded_edit.setEnabled(False)
+        self.btn_embedded_edit.setToolTip("Mở tài liệu trong Trình Soạn thảo Hành chính WYSIWYG tích hợp")
+        self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
+
         self.btn_open_word = QPushButton("Mở file Word")
         self.btn_open_word.setIcon(get_ui_icon("file_word"))
-        self.btn_open_word.setIconSize(QSize(17, 17))
-        self.btn_open_word.setStyleSheet("background-color: #2563eb; color: white; font-weight: 600;")
+        self.btn_open_word.setIconSize(QSize(16, 16))
+        self.btn_open_word.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1px solid #1d4ed8;
+            }
+            QPushButton:hover { background-color: #1d4ed8; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
         self.btn_open_word.setEnabled(False)
         self.btn_open_word.clicked.connect(self._open_output_word)
 
         self.btn_open_pdf = QPushButton("Mở file PDF")
         self.btn_open_pdf.setIcon(get_ui_icon("file_pdf"))
-        self.btn_open_pdf.setIconSize(QSize(17, 17))
-        self.btn_open_pdf.setStyleSheet("background-color: #dc2626; color: white; font-weight: 600;")
+        self.btn_open_pdf.setIconSize(QSize(16, 16))
+        self.btn_open_pdf.setStyleSheet("""
+            QPushButton {
+                background-color: #dc2626; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1px solid #b91c1c;
+            }
+            QPushButton:hover { background-color: #b91c1c; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
         self.btn_open_pdf.setEnabled(False)
         self.btn_open_pdf.clicked.connect(self._open_output_pdf)
 
         self.btn_sign_pdf = QPushButton("Ký số (NĐ 30)")
         self.btn_sign_pdf.setIcon(get_ui_icon("digital_sign"))
-        self.btn_sign_pdf.setIconSize(QSize(17, 17))
-        self.btn_sign_pdf.setStyleSheet("background-color: #7c3aed; color: white; font-weight: 600;")
+        self.btn_sign_pdf.setIconSize(QSize(16, 16))
+        self.btn_sign_pdf.setStyleSheet("""
+            QPushButton {
+                background-color: #7c3aed; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1px solid #6d28d9;
+            }
+            QPushButton:hover { background-color: #6d28d9; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
         self.btn_sign_pdf.setToolTip("Ký số điện tử bằng USB Token Ban Cơ yếu hoặc VGCA SignTool theo Nghị định 30/2020/NĐ-CP")
         self.btn_sign_pdf.setEnabled(False)
         self.btn_sign_pdf.clicked.connect(self._open_signature_dialog)
 
-        self.btn_embedded_edit = QPushButton("Soạn thảo tích hợp")
-        self.btn_embedded_edit.setIcon(get_ui_icon("file_word"))
-        self.btn_embedded_edit.setIconSize(QSize(17, 17))
-        self.btn_embedded_edit.setStyleSheet("background-color: #059669; color: white; font-weight: 600;")
-        self.btn_embedded_edit.setEnabled(False)
-        self.btn_embedded_edit.setToolTip("Mở tài liệu trong Trình Soạn thảo Hành chính WYSIWYG tích hợp")
-        self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
-
         self.btn_open_dir = QPushButton("Mở thư mục")
         self.btn_open_dir.setIcon(get_ui_icon("folder_open"))
-        self.btn_open_dir.setIconSize(QSize(17, 17))
+        self.btn_open_dir.setIconSize(QSize(16, 16))
+        self.btn_open_dir.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff; color: #0f172a; font-weight: 600;
+                font-size: 12px; padding: 7px 12px; border-radius: 4px; border: 1.5px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #f8fafc; border-color: #94a3b8; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+        """)
         self.btn_open_dir.setEnabled(False)
-        self.btn_open_dir.setObjectName("btnSecondary")
         self.btn_open_dir.clicked.connect(self._open_output_folder)
 
         actions_layout.addWidget(self.btn_run_ocr)

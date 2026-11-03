@@ -70,53 +70,76 @@ class AdministrativeRibbonBar(QWidget):
         self.setStyleSheet("""
             QWidget {
                 background-color: #ffffff;
+                color: #0f172a;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
             QTabWidget::pane {
-                border-top: 1px solid #e2e8f0;
+                border-top: 2px solid #cbd5e1;
                 background-color: #ffffff;
+            }
+            QTabBar {
+                background-color: #f1f5f9;
             }
             QTabBar::tab {
-                background-color: #ffffff;
-                color: #64748b;
-                padding: 6px 16px;
-                border: none;
-                border-bottom: 2px solid transparent;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            QTabBar::tab:selected {
-                color: #2563eb;
-                border-bottom: 2px solid #2563eb;
+                background-color: #f1f5f9;
+                color: #1e293b;
+                padding: 7px 18px;
+                border: 1px solid #cbd5e1;
+                border-bottom: none;
+                margin-right: 3px;
+                border-top-left-radius: 5px;
+                border-top-right-radius: 5px;
+                font-size: 12.5px;
                 font-weight: 600;
             }
+            QTabBar::tab:selected {
+                background-color: #ffffff;
+                color: #2563eb;
+                border-top: 3px solid #2563eb;
+                font-weight: 700;
+            }
             QTabBar::tab:hover {
-                color: #0f172a;
-            }
-            QToolButton {
-                border: 1px solid transparent;
-                border-radius: 4px;
-                padding: 4px 6px;
-                background: transparent;
-                font-size: 11.5px;
-                color: #334155;
-            }
-            QToolButton:hover {
-                background-color: #f1f5f9;
-                border-color: #cbd5e1;
-            }
-            QToolButton:checked {
-                background-color: #eff6ff;
-                border-color: #bfdbfe;
+                background-color: #ffffff;
                 color: #1d4ed8;
             }
-            QComboBox {
+            QToolButton {
                 border: 1px solid #cbd5e1;
                 border-radius: 4px;
-                padding: 2px 20px 2px 6px;
-                font-size: 11.5px;
-                background: white;
-                min-height: 24px;
+                padding: 5px 8px;
+                background-color: #ffffff;
+                font-size: 12px;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            QToolButton:hover {
+                background-color: #eff6ff;
+                border-color: #2563eb;
+                color: #1d4ed8;
+            }
+            QToolButton:checked {
+                background-color: #dbeafe;
+                border-color: #1d4ed8;
+                color: #1e40af;
+                font-weight: 700;
+            }
+            QLabel {
+                color: #0f172a;
+                font-size: 12px;
+                font-weight: 600;
+                background: transparent;
+            }
+            QComboBox {
+                border: 1.5px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 3px 22px 3px 8px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #0f172a;
+                background-color: #ffffff;
+                min-height: 26px;
+            }
+            QComboBox:focus {
+                border-color: #2563eb;
             }
         """)
 

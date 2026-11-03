@@ -77,7 +77,7 @@ def get_current_winword_pids() -> Set[int]:
 
 
 class Win32WordHelper:
-    def __init__(self, default_timeout_sec: float = 35.0):
+    def __init__(self, default_timeout_sec: float = 12.0):
         self._available = None
         self.default_timeout_sec = default_timeout_sec
 

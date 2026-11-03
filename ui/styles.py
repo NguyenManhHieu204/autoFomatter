@@ -150,6 +150,53 @@ QPushButton#btnPrimary:pressed, QPushButton.btn-primary:pressed {
     background-color: #1e40af;
 }
 
+/* Nút phụ (Secondary Action) */
+QPushButton#btnSecondary, QPushButton.btn-secondary {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1.5px solid #cbd5e1;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 4px;
+}
+
+QPushButton#btnSecondary:hover, QPushButton.btn-secondary:hover {
+    background-color: #f8fafc;
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+/* ToolBar & ToolButton chuẩn mực */
+QToolBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 2px;
+}
+
+QToolButton {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QToolButton:hover {
+    background-color: #eff6ff;
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
+
+QToolButton:checked {
+    background-color: #dbeafe;
+    border-color: #1d4ed8;
+    color: #1e40af;
+    font-weight: 700;
+}
+
 /* Nút Đỏ / Xuất PDF */
 QPushButton#btnDanger {
     background-color: #dc2626;
@@ -208,39 +255,42 @@ QPushButton#btnCancel:hover {
 /* Ô nhập liệu & Dropdown & SpinBox */
 QLineEdit {
     background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
-    padding: 4px 8px;
-    min-height: 28px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 5px 10px;
+    min-height: 32px;
     color: #0f172a;
-    font-size: 12.5px;
+    font-size: 13px;
 }
 
 QLineEdit:focus {
     border-color: #2563eb;
-}
-
-QPlainTextEdit {
     background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
-    padding: 6px 8px;
-    color: #0f172a;
-    font-size: 12.5px;
 }
 
-QPlainTextEdit:focus {
+QPlainTextEdit, QTextEdit {
+    background-color: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: #0f172a;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+QPlainTextEdit:focus, QTextEdit:focus {
     border-color: #2563eb;
+    background-color: #ffffff;
 }
 
 QComboBox {
     background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
-    padding: 4px 28px 4px 8px;
-    min-height: 28px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 5px 30px 5px 10px;
+    min-height: 32px;
     color: #0f172a;
-    font-size: 12.5px;
+    font-size: 13px;
 }
 
 QComboBox:focus {
@@ -250,58 +300,75 @@ QComboBox:focus {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 24px;
+    width: 26px;
     border-left: 1px solid #cbd5e1;
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    background-color: #f8fafc;
 }
 
 QComboBox QAbstractItemView {
     background-color: #ffffff;
     color: #0f172a;
-    border: 1px solid #cbd5e1;
-    selection-background-color: #f1f5f9;
-    selection-color: #2563eb;
-    padding: 4px;
+    border: 1.5px solid #cbd5e1;
+    selection-background-color: #eff6ff;
+    selection-color: #1d4ed8;
+    padding: 6px;
+    font-size: 13px;
 }
 
 QSpinBox {
     background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
-    padding: 3px 8px;
-    min-height: 28px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 4px 26px 4px 10px;
+    min-height: 30px;
     color: #0f172a;
-    font-size: 12.5px;
+    font-size: 13px;
 }
 
 QSpinBox:focus {
     border-color: #2563eb;
 }
 
-QSpinBox::up-button, QSpinBox::down-button {
-    width: 20px;
-    border: none;
-    background-color: #f1f5f9;
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 22px;
+    border-left: 1px solid #cbd5e1;
+    border-bottom: 1px solid #cbd5e1;
+    background-color: #f8fafc;
 }
 
-QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+QSpinBox::up-button:hover {
     background-color: #e2e8f0;
 }
 
-/* Radio Button & Checkbox - Tương phản cao, rõ ràng */
-QRadioButton, QCheckBox {
-    spacing: 8px;
-    font-size: 12.5px;
-    color: #0f172a;
-    background-color: transparent;
-    padding: 3px 0;
-    min-height: 22px;
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 22px;
+    border-left: 1px solid #cbd5e1;
+    background-color: #f8fafc;
 }
 
-QRadioButton::indicator, QCheckBox::indicator {
-    width: 16px;
-    height: 16px;
+QSpinBox::down-button:hover {
+    background-color: #e2e8f0;
+}
+
+/* Radio Button & Checkbox - Tương phản cao, không cắt xén chữ trên High-DPI */
+QRadioButton, QCheckBox {
+    spacing: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #0f172a;
+    background-color: transparent;
+    padding: 5px 2px;
+    min-height: 26px;
+}
+
+QRadioButton:hover, QCheckBox:hover {
+    color: #2563eb;
 }
 
 /* Bảng dữ liệu */

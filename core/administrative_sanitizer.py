@@ -91,6 +91,13 @@ ADMIN_OCR_REPLACEMENTS = [
     (re.compile(r'\bY\s+te\b', re.IGNORECASE), 'Y tế'),
 
     # 6. Cấp xã, phường, thị trấn & Địa danh
+    (re.compile(r'\bdanh\s*sachcu\s*thekem\s*theo\b|\bdanh\s+sach\s+cu\s+the\s+kem\s+theo\b|\bdanh\s+sách\s+cụ\s+thể\s+kem\s+theo\b', re.IGNORECASE), 'danh sách cụ thể kèm theo'),
+    (re.compile(r'\(\s*(?:co|có)\s+(?:danh\s+sách|danh\s+sach)\b', re.IGNORECASE), '(có danh sách'),
+    (re.compile(r'\btruc\s+thuoc\b|\btrực\s+thuoc\b|\btruc\s+thuộc\b', re.IGNORECASE), 'trực thuộc'),
+    (re.compile(r'\bQuyet\s+dinh\b|\bQuyết\s+đinh\b', re.IGNORECASE), 'Quyết định'),
+    (re.compile(r'\bQuyet\s+nghi\b|\bQuyết\s+nghi\b', re.IGNORECASE), 'Quyết nghị'),
+    (re.compile(r'\b(quyet\s+dinh|quyết\s+định)\s+co\s+hieu\s+luc\s+ke\s+(?:t[uừ]|tir)\s+ngay\s+ky\b', re.IGNORECASE), 'Quyết định có hiệu lực kể từ ngày ký'),
+    (re.compile(r'(\bĐiều\s+\d+)[\.,]\s*[Cc]ăn\s+cứ\s+(?:QUYẾT\s+ĐỊNH|Quyết\s+định)\s+thi\s+h[aà]nh\b', re.IGNORECASE), r'\1, căn cứ Quyết định thi hành'),
     (re.compile(r'\bxa\s+Thuan\s+Hanh\b|\bxa\s+Thuận\s+Hạnh\b', re.IGNORECASE), 'xã Thuận Hạnh'),
     (re.compile(r'\bThuan\s+Hanh\b', re.IGNORECASE), 'Thuận Hạnh'),
     (re.compile(r'\bDak\s+Nong\b|\bĐak\s+Nong\b', re.IGNORECASE), 'Đắk Nông'),
@@ -252,9 +259,8 @@ class AdministrativeSanitizer:
     def heal_ocr_text_with_issues(text: str) -> Tuple[str, int, List[Any]]:
         """
         Quét và phục hồi các lỗi ký tự OCR phổ biến trong văn bản tiếng Việt.
-        Trả về: (văn bản đã phục hồi, số lượng lỗi, danh sách LintIssue chi tiết).
-        Mỗi lỗi được ghi nhận đầy đủ: loại lỗi 'spelling', nội dung gốc, nội dung chuẩn hóa,
-        thông điệp mô tả và mức độ 'auto_fixed'.
+        Thực hiện lặp hội tụ (tối đa 3 vòng) để đảm bảo các quy tắc phụ thuộc lẫn nhau
+        được giải quyết triệt để ngay trong lượt đầu tiên (Idempotent 100%).
         """
         from core.spell_linter import LintIssue
         import unicodedata
@@ -266,30 +272,36 @@ class AdministrativeSanitizer:
         total_changes = 0
         issues: List[LintIssue] = []
 
-        for pattern, replacement in ADMIN_OCR_REPLACEMENTS:
-            matches = list(pattern.finditer(cleaned))
-            if not matches:
-                continue
+        for _pass in range(3):
+            pass_changes = 0
+            for pattern, replacement in ADMIN_OCR_REPLACEMENTS:
+                matches = list(pattern.finditer(cleaned))
+                if not matches:
+                    continue
 
-            for m in matches:
-                orig = m.group(0)
-                repl = pattern.sub(replacement, orig)
-                orig_nfc = unicodedata.normalize('NFC', orig.strip())
-                repl_nfc = unicodedata.normalize('NFC', repl.strip())
-                if orig_nfc != repl_nfc:
-                    msg = f"Tự động sửa lỗi chính tả / phục hồi dấu: '{orig_nfc}' -> '{repl_nfc}'"
-                    issues.append(LintIssue(
-                        issue_type="spelling",
-                        original=orig_nfc,
-                        replacement=repl_nfc,
-                        message=msg,
-                        severity="auto_fixed"
-                    ))
+                for m in matches:
+                    orig = m.group(0)
+                    repl = pattern.sub(replacement, orig)
+                    orig_nfc = unicodedata.normalize('NFC', orig.strip())
+                    repl_nfc = unicodedata.normalize('NFC', repl.strip())
+                    if orig_nfc != repl_nfc:
+                        msg = f"Tự động sửa lỗi chính tả / phục hồi dấu: '{orig_nfc}' -> '{repl_nfc}'"
+                        issues.append(LintIssue(
+                            issue_type="spelling",
+                            original=orig_nfc,
+                            replacement=repl_nfc,
+                            message=msg,
+                            severity="auto_fixed"
+                        ))
+                        pass_changes += 1
 
-            new_text, n = pattern.subn(replacement, cleaned)
-            if n > 0:
-                cleaned = unicodedata.normalize('NFC', new_text)
-                total_changes += n
+                new_text, n = pattern.subn(replacement, cleaned)
+                if n > 0:
+                    cleaned = unicodedata.normalize('NFC', new_text)
+
+            total_changes += pass_changes
+            if pass_changes == 0:
+                break
 
         return cleaned, total_changes, issues
 

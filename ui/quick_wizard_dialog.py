@@ -21,9 +21,81 @@ class QuickWizardDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Khởi tạo văn bản mới")
-        self.resize(580, 530)
-        self.setMinimumSize(520, 480)
+        self.setWindowTitle("Khởi tạo văn bản mới (Chuẩn Cấp Xã)")
+        self.resize(600, 540)
+        self.setMinimumSize(540, 480)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f1f5f9;
+                color: #0f172a;
+            }
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 13px;
+                color: #0f172a;
+                margin-top: 12px;
+                padding: 14px 12px 10px 12px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                padding: 0 6px;
+                background-color: #ffffff;
+                color: #1e293b;
+            }
+            QLabel {
+                color: #0f172a;
+                font-weight: 500;
+                font-size: 13px;
+                background: transparent;
+            }
+            QLineEdit, QComboBox {
+                background-color: #ffffff;
+                color: #0f172a;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 5px;
+                padding: 5px 8px;
+                font-size: 13px;
+                min-height: 28px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border-color: #2563eb;
+            }
+            QRadioButton {
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 500;
+                spacing: 8px;
+                background: transparent;
+                padding: 3px 0;
+            }
+            QPushButton {
+                background-color: #ffffff;
+                color: #0f172a;
+                font-weight: 500;
+                font-size: 13px;
+                padding: 7px 16px;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #f8fafc;
+                border-color: #94a3b8;
+            }
+            QPushButton#btnPrimary {
+                background-color: #2563eb;
+                color: #ffffff;
+                font-weight: 600;
+                border: 1px solid #1d4ed8;
+            }
+            QPushButton#btnPrimary:hover {
+                background-color: #1d4ed8;
+            }
+        """)
         self.wizard_controller = TemplateWizardController()
         self.result_metadata: Optional[Dict[str, Any]] = None
 
