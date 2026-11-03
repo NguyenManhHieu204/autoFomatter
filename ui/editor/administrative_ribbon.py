@@ -38,6 +38,15 @@ class AdministrativeRibbonBar(QWidget):
 
     line_spacing_changed = pyqtSignal(float)
     indent_first_line_triggered = pyqtSignal(float)
+    increase_indent_triggered = pyqtSignal()
+    decrease_indent_triggered = pyqtSignal()
+    remove_space_before_triggered = pyqtSignal()
+    remove_space_after_triggered = pyqtSignal()
+    remove_all_spacing_triggered = pyqtSignal()
+    add_space_before_triggered = pyqtSignal(float)
+    add_space_after_triggered = pyqtSignal(float)
+    apply_nd30_spacing_triggered = pyqtSignal()
+
     bullet_list_triggered = pyqtSignal()
     numbered_list_triggered = pyqtSignal()
 
@@ -141,6 +150,27 @@ class AdministrativeRibbonBar(QWidget):
             QComboBox:focus {
                 border-color: #2563eb;
             }
+            QMenu {
+                background-color: #ffffff;
+                color: #0f172a;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 20px 6px 10px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QMenu::item:selected {
+                background-color: #eff6ff;
+                color: #2563eb;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #e2e8f0;
+                margin: 4px 6px;
+            }
         """)
 
         layout = QVBoxLayout(self)
@@ -228,7 +258,7 @@ class AdministrativeRibbonBar(QWidget):
         layout.addLayout(font_box)
         layout.addWidget(self._create_separator())
 
-        # 2. Nhóm Căn lề & Giãn dòng (Paragraph)
+        # 2. Nhóm Căn lề, Thụt lề & Giãn dòng/đoạn (Paragraph)
         para_box = QVBoxLayout()
         para_box.setSpacing(4)
 
@@ -237,33 +267,65 @@ class AdministrativeRibbonBar(QWidget):
         self.btn_left = QToolButton()
         self.btn_left.setIcon(get_ui_icon("align_left"))
         self.btn_left.setIconSize(QSize(16, 16))
-        self.btn_left.setToolTip("Căn trái")
+        self.btn_left.setToolTip("Căn trái (Ctrl+L)")
         self.btn_left.clicked.connect(self.align_left_triggered.emit)
         row_align.addWidget(self.btn_left)
 
         self.btn_center = QToolButton()
         self.btn_center.setIcon(get_ui_icon("align_center"))
         self.btn_center.setIconSize(QSize(16, 16))
-        self.btn_center.setToolTip("Căn giữa")
+        self.btn_center.setToolTip("Căn giữa (Ctrl+E)")
         self.btn_center.clicked.connect(self.align_center_triggered.emit)
         row_align.addWidget(self.btn_center)
 
         self.btn_right = QToolButton()
         self.btn_right.setIcon(get_ui_icon("align_right"))
         self.btn_right.setIconSize(QSize(16, 16))
-        self.btn_right.setToolTip("Căn phải")
+        self.btn_right.setToolTip("Căn phải (Ctrl+R)")
         self.btn_right.clicked.connect(self.align_right_triggered.emit)
         row_align.addWidget(self.btn_right)
 
         self.btn_justify = QToolButton()
         self.btn_justify.setIcon(get_ui_icon("align_justify"))
         self.btn_justify.setIconSize(QSize(16, 16))
-        self.btn_justify.setToolTip("Căn đều hai bên")
+        self.btn_justify.setToolTip("Căn đều hai bên (Ctrl+J)")
         self.btn_justify.setChecked(True)
         self.btn_justify.clicked.connect(self.align_justify_triggered.emit)
         row_align.addWidget(self.btn_justify)
+
+        # Nút giảm / tăng thụt lề chuẩn Word
+        self.btn_dec_indent = QToolButton()
+        self.btn_dec_indent.setText("⇤")
+        self.btn_dec_indent.setToolTip("Giảm thụt lề (Decrease Indent)")
+        self.btn_dec_indent.setStyleSheet("font-weight: bold; font-size: 13px;")
+        self.btn_dec_indent.clicked.connect(self.decrease_indent_triggered.emit)
+        row_align.addWidget(self.btn_dec_indent)
+
+        self.btn_inc_indent = QToolButton()
+        self.btn_inc_indent.setText("⇥")
+        self.btn_inc_indent.setToolTip("Tăng thụt lề (Increase Indent)")
+        self.btn_inc_indent.setStyleSheet("font-weight: bold; font-size: 13px;")
+        self.btn_inc_indent.clicked.connect(self.increase_indent_triggered.emit)
+        row_align.addWidget(self.btn_inc_indent)
+
+        # Menu Thụt đầu dòng (First Line Indent)
+        self.btn_first_line = QToolButton()
+        self.btn_first_line.setText("Thụt đầu dòng ▼")
+        self.btn_first_line.setToolTip("Quy chuẩn thụt dòng đầu đoạn văn")
+        self.btn_first_line.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu_fl = QMenu(self.btn_first_line)
+        act_fl_10 = menu_fl.addAction("Thụt đầu dòng 1.0 cm (Chuẩn NĐ 30)")
+        act_fl_10.triggered.connect(lambda: self.indent_first_line_triggered.emit(10.0))
+        act_fl_127 = menu_fl.addAction("Thụt đầu dòng 1.27 cm (Chuẩn Word 0.5\")")
+        act_fl_127.triggered.connect(lambda: self.indent_first_line_triggered.emit(12.7))
+        act_fl_none = menu_fl.addAction("Bỏ thụt đầu dòng (0 cm)")
+        act_fl_none.triggered.connect(lambda: self.indent_first_line_triggered.emit(0.0))
+        self.btn_first_line.setMenu(menu_fl)
+        row_align.addWidget(self.btn_first_line)
+
         para_box.addLayout(row_align)
 
+        # Dòng 2: Giãn dòng & Giãn đoạn chuẩn Microsoft Word
         row_spacing = QHBoxLayout()
         row_spacing.setSpacing(6)
         lbl_sp = QLabel("Giãn dòng:")
@@ -272,15 +334,43 @@ class AdministrativeRibbonBar(QWidget):
 
         self.cb_line_spacing = QComboBox()
         self.cb_line_spacing.setFixedWidth(70)
-        self.cb_line_spacing.addItems(["1.0", "1.15", "1.2", "1.25", "1.5"])
+        self.cb_line_spacing.addItems(["1.0", "1.15", "1.2", "1.25", "1.5", "2.0"])
         self.cb_line_spacing.setCurrentText("1.2")
         self.cb_line_spacing.currentTextChanged.connect(self._on_line_spacing_changed)
         row_spacing.addWidget(self.cb_line_spacing)
 
-        btn_indent = QToolButton()
-        btn_indent.setText("Thụt lề 1.27cm")
-        btn_indent.clicked.connect(lambda: self.indent_first_line_triggered.emit(12.7))
-        row_spacing.addWidget(btn_indent)
+        # Nút menu Giãn cách đoạn văn (Khoảng cách trên/dưới giống Microsoft Word)
+        self.btn_paragraph_spacing = QToolButton()
+        self.btn_paragraph_spacing.setText("Khoảng cách đoạn ▼")
+        self.btn_paragraph_spacing.setToolTip("Xóa hoặc thêm khoảng cách phía trên, phía dưới đoạn văn (giống MS Word)")
+        self.btn_paragraph_spacing.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.btn_paragraph_spacing.setStyleSheet("font-weight: 500;")
+
+        menu_sp = QMenu(self.btn_paragraph_spacing)
+        act_rm_before = menu_sp.addAction("🗑️ Xóa khoảng thừa phía trên đoạn (0pt)")
+        act_rm_before.triggered.connect(self.remove_space_before_triggered.emit)
+
+        act_rm_after = menu_sp.addAction("🗑️ Xóa khoảng thừa phía dưới đoạn (0pt)")
+        act_rm_after.triggered.connect(self.remove_space_after_triggered.emit)
+
+        act_rm_all = menu_sp.addAction("🧹 Xóa tất cả khoảng thừa trên & dưới (0pt/0pt)")
+        act_rm_all.triggered.connect(self.remove_all_spacing_triggered.emit)
+
+        menu_sp.addSeparator()
+
+        act_add_before = menu_sp.addAction("➕ Thêm 6pt trước đoạn")
+        act_add_before.triggered.connect(lambda: self.add_space_before_triggered.emit(6.0))
+
+        act_add_after = menu_sp.addAction("➕ Thêm 6pt sau đoạn")
+        act_add_after.triggered.connect(lambda: self.add_space_after_triggered.emit(6.0))
+
+        menu_sp.addSeparator()
+
+        act_nd30 = menu_sp.addAction("📐 Chuẩn hóa Nghị định 30 (Dòng: 1.2, Trước: 0pt, Sau: 6pt)")
+        act_nd30.triggered.connect(self.apply_nd30_spacing_triggered.emit)
+
+        self.btn_paragraph_spacing.setMenu(menu_sp)
+        row_spacing.addWidget(self.btn_paragraph_spacing)
 
         para_box.addLayout(row_spacing)
         layout.addLayout(para_box)

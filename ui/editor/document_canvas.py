@@ -746,22 +746,88 @@ class DocumentCanvas(QFrame):
         if ed:
             ed.setAlignment(align)
 
-    def set_line_spacing(self, spacing_val: float):
+    def _modify_selected_blocks_format(self, modifier_func):
+        """Áp dụng thay đổi định dạng đoạn văn (QTextBlockFormat) lên tất cả các đoạn đang được chọn hoặc đoạn hiện tại"""
         ed = self.active_editor
-        if ed:
-            cursor = ed.textCursor()
-            block_fmt = cursor.blockFormat()
-            block_fmt.setLineHeight(int(spacing_val * 100), QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
-            cursor.setBlockFormat(block_fmt)
+        if not ed:
+            return
+        cursor = ed.textCursor()
+        cursor.beginEditBlock()
+        try:
+            doc = ed.document()
+            start_pos = cursor.selectionStart()
+            end_pos = cursor.selectionEnd()
+            start_block = doc.findBlock(start_pos)
+            end_block = doc.findBlock(max(start_pos, end_pos - 1 if end_pos > start_pos else end_pos))
 
-    def set_first_line_indent(self, mm: float = 12.7):
-        ed = self.active_editor
-        if ed:
-            cursor = ed.textCursor()
-            block_fmt = cursor.blockFormat()
-            px = int(mm * 3.7795)
-            block_fmt.setTextIndent(px)
-            cursor.setBlockFormat(block_fmt)
+            curr = start_block
+            while curr.isValid():
+                b_cursor = QTextCursor(curr)
+                fmt = curr.blockFormat()
+                modifier_func(fmt)
+                b_cursor.setBlockFormat(fmt)
+                if curr == end_block:
+                    break
+                curr = curr.next()
+        finally:
+            cursor.endEditBlock()
+        self.document_modified.emit()
+
+    def set_line_spacing(self, spacing_val: float):
+        """Đặt khoảng cách giãn dòng (1.0, 1.15, 1.2, 1.25, 1.5, 2.0)"""
+        self._modify_selected_blocks_format(
+            lambda fmt: fmt.setLineHeight(int(spacing_val * 100), QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
+        )
+
+    def set_first_line_indent(self, mm: float = 10.0):
+        """Thụt dòng đầu tiên của đoạn (1.0cm chuẩn NĐ 30, 1.27cm chuẩn Word 0.5', 0cm)"""
+        px = int(mm * 3.7795)
+        self._modify_selected_blocks_format(lambda fmt: fmt.setTextIndent(px))
+
+    def increase_indent(self, step_mm: float = 10.0):
+        """Tăng thụt lề toàn bộ đoạn (Increase Indent) giống Microsoft Word"""
+        step_px = int(step_mm * 3.7795)
+        self._modify_selected_blocks_format(lambda fmt: fmt.setLeftMargin(fmt.leftMargin() + step_px))
+
+    def decrease_indent(self, step_mm: float = 10.0):
+        """Giảm thụt lề toàn bộ đoạn (Decrease Indent) giống Microsoft Word"""
+        step_px = int(step_mm * 3.7795)
+        self._modify_selected_blocks_format(lambda fmt: fmt.setLeftMargin(max(0.0, fmt.leftMargin() - step_px)))
+
+    def remove_space_before(self):
+        """Xóa khoảng cách thừa phía trên đoạn văn (Remove Space Before Paragraph - 0pt)"""
+        self._modify_selected_blocks_format(lambda fmt: fmt.setTopMargin(0.0))
+
+    def remove_space_after(self):
+        """Xóa khoảng cách thừa phía dưới đoạn văn (Remove Space After Paragraph - 0pt)"""
+        self._modify_selected_blocks_format(lambda fmt: fmt.setBottomMargin(0.0))
+
+    def remove_all_spacing(self):
+        """Xóa sạch mọi khoảng thừa trên và dưới (0pt / 0pt)"""
+        def _clear(fmt):
+            fmt.setTopMargin(0.0)
+            fmt.setBottomMargin(0.0)
+        self._modify_selected_blocks_format(_clear)
+
+    def add_space_before(self, pt: float = 6.0):
+        """Thêm khoảng cách phía trên đoạn văn (Add Space Before Paragraph)"""
+        px = pt * 1.333
+        self._modify_selected_blocks_format(lambda fmt: fmt.setTopMargin(px))
+
+    def add_space_after(self, pt: float = 6.0):
+        """Thêm khoảng cách phía dưới đoạn văn (Add Space After Paragraph)"""
+        px = pt * 1.333
+        self._modify_selected_blocks_format(lambda fmt: fmt.setBottomMargin(px))
+
+    def apply_nd30_spacing(self):
+        """Chuẩn hóa cấu hình giãn dòng & đoạn theo Nghị định 30 (Dòng 1.2, Trước 0pt, Sau 6pt, Thụt 1.0cm)"""
+        def _nd30(fmt):
+            fmt.setLineHeight(120, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
+            fmt.setTopMargin(0.0)
+            fmt.setBottomMargin(6.0 * 1.333)
+            fmt.setTextIndent(int(10.0 * 3.7795))
+            fmt.setAlignment(Qt.AlignmentFlag.AlignJustify)
+        self._modify_selected_blocks_format(_nd30)
 
     def insert_symbol(self, sym: str):
         ed = self.active_editor

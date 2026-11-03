@@ -258,6 +258,56 @@ class TestEmbeddedEditor(unittest.TestCase):
         canvas.remove_page(1)
         self.assertEqual(len(canvas.pages), 1)
 
+    def test_paragraph_spacing_and_indent_controls(self):
+        """Kiểm tra chức năng giãn đoạn (xóa khoảng thừa trên/dưới) và thụt lề chuẩn Word"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+
+        canvas = DocumentCanvas()
+        ed = canvas.active_editor
+        ed.setPlainText("Đoạn văn kiểm thử giãn dòng và khoảng cách đoạn.")
+
+        # 1. Thêm khoảng cách trên & dưới
+        canvas.add_space_before(6.0)
+        canvas.add_space_after(6.0)
+        fmt = ed.textCursor().blockFormat()
+        self.assertAlmostEqual(fmt.topMargin(), 6.0 * 1.333, delta=0.5)
+        self.assertAlmostEqual(fmt.bottomMargin(), 6.0 * 1.333, delta=0.5)
+
+        # 2. Xóa khoảng thừa trên
+        canvas.remove_space_before()
+        fmt = ed.textCursor().blockFormat()
+        self.assertEqual(fmt.topMargin(), 0.0)
+        self.assertAlmostEqual(fmt.bottomMargin(), 6.0 * 1.333, delta=0.5)
+
+        # 3. Xóa sạch khoảng thừa trên & dưới
+        canvas.remove_all_spacing()
+        fmt = ed.textCursor().blockFormat()
+        self.assertEqual(fmt.topMargin(), 0.0)
+        self.assertEqual(fmt.bottomMargin(), 0.0)
+
+        # 4. Tăng & giảm thụt lề (Increase/Decrease Indent)
+        canvas.increase_indent(10.0)
+        fmt = ed.textCursor().blockFormat()
+        self.assertGreater(fmt.leftMargin(), 30)
+
+        canvas.decrease_indent(10.0)
+        fmt = ed.textCursor().blockFormat()
+        self.assertEqual(fmt.leftMargin(), 0.0)
+
+        # 5. Thụt dòng đầu tiên (First Line Indent)
+        canvas.set_first_line_indent(10.0)
+        fmt = ed.textCursor().blockFormat()
+        self.assertAlmostEqual(fmt.textIndent(), 37.795, delta=1.0)
+
+        # 6. Chuẩn hóa Nghị định 30
+        canvas.apply_nd30_spacing()
+        fmt = ed.textCursor().blockFormat()
+        self.assertEqual(fmt.topMargin(), 0.0)
+        self.assertAlmostEqual(fmt.bottomMargin(), 6.0 * 1.333, delta=0.5)
+        self.assertAlmostEqual(fmt.textIndent(), 37.795, delta=1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
