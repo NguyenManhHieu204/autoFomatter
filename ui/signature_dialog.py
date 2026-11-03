@@ -27,7 +27,6 @@ from core.signature_engine import (
     WindowsCertStoreHelper, VGCABridge, PdfDigitalSigner,
     PdfSignatureLocator, CertificateInfo
 )
-from ui.icon_factory import get_ui_icon, get_ui_pixmap
 
 
 class PdfInteractiveCanvas(QWidget):
@@ -390,20 +389,20 @@ class SignatureDialog(QDialog):
         self.btn_next_page.setObjectName("btnSecondary")
         self.btn_next_page.clicked.connect(self._next_page)
 
-        self.btn_zoom_out = QPushButton("🔍 -")
-        self.btn_zoom_out.setFixedWidth(40)
+        self.btn_zoom_out = QPushButton("Thu nhỏ (-)")
+        self.btn_zoom_out.setFixedWidth(80)
         self.btn_zoom_out.setObjectName("btnSecondary")
         self.btn_zoom_out.clicked.connect(self._zoom_out)
 
         self.lbl_zoom = QLabel("100%")
         self.lbl_zoom.setStyleSheet("color: #475569; font-size: 12px;")
 
-        self.btn_zoom_in = QPushButton("🔍 +")
-        self.btn_zoom_in.setFixedWidth(40)
+        self.btn_zoom_in = QPushButton("Phóng to (+)")
+        self.btn_zoom_in.setFixedWidth(80)
         self.btn_zoom_in.setObjectName("btnSecondary")
         self.btn_zoom_in.clicked.connect(self._zoom_in)
 
-        self.btn_auto_locate = QPushButton("🎯 Tự động tìm ô ký (NĐ 30)")
+        self.btn_auto_locate = QPushButton("Tự động tìm ô ký (NĐ 30)")
         self.btn_auto_locate.setStyleSheet(
             "background-color: #ecfdf5; color: #047857; font-weight: bold; border: 1px solid #a7f3d0; border-radius: 4px; padding: 4px 10px;"
         )
@@ -451,8 +450,11 @@ class SignatureDialog(QDialog):
         status_layout = QHBoxLayout(self.status_box)
         status_layout.setContentsMargins(4, 4, 4, 4)
 
-        self.lbl_status_icon = QLabel()
-        self.lbl_status_icon.setPixmap(get_ui_pixmap("digital_sign", 20))
+        self.lbl_status_badge = QLabel("KẾT NỐI")
+        self.lbl_status_badge.setStyleSheet("""
+            background-color: #e0f2fe; color: #0284c7; font-weight: 700;
+            font-size: 11px; padding: 2px 8px; border-radius: 4px;
+        """)
         self.lbl_status_text = QLabel("Đang kiểm tra thiết bị Token...")
         self.lbl_status_text.setStyleSheet("font-weight: 600; color: #1e293b; font-size: 12px;")
 
@@ -461,7 +463,7 @@ class SignatureDialog(QDialog):
         self.btn_refresh.setFixedWidth(75)
         self.btn_refresh.clicked.connect(self._refresh_environment)
 
-        status_layout.addWidget(self.lbl_status_icon)
+        status_layout.addWidget(self.lbl_status_badge)
         status_layout.addWidget(self.lbl_status_text, 1)
         status_layout.addWidget(self.btn_refresh)
         right_layout.addWidget(self.status_box)
@@ -580,8 +582,6 @@ class SignatureDialog(QDialog):
         # 6. Các nút hành động
         btn_layout = QHBoxLayout()
         self.btn_sign = QPushButton("THỰC HIỆN KÝ SỐ VĂN BẢN")
-        self.btn_sign.setIcon(get_ui_icon("digital_sign"))
-        self.btn_sign.setIconSize(QSize(18, 18))
         self.btn_sign.setStyleSheet(
             "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c3aed, stop:1 #6d28d9); "
             "color: white; font-weight: bold; font-size: 13px; min-height: 42px; border-radius: 6px;"
@@ -607,12 +607,12 @@ class SignatureDialog(QDialog):
     def _load_document(self):
         """Nạp tệp PDF vào Canvas và tự động định vị khối ký"""
         if not self.pdf_path or not os.path.exists(self.pdf_path):
-            self.lbl_coord_status.setText("⚠ Tệp PDF không tồn tại.")
+            self.lbl_coord_status.setText("Tệp PDF không tồn tại.")
             return
 
         ok = self.canvas.load_pdf(self.pdf_path)
         if not ok or self.canvas.page_count == 0:
-            self.lbl_coord_status.setText("⚠ Không thể mở tệp PDF.")
+            self.lbl_coord_status.setText("Không thể mở tệp PDF.")
             return
 
         self._update_page_nav_controls()
@@ -674,7 +674,7 @@ class SignatureDialog(QDialog):
         self._on_canvas_position_changed(target_p, norm_x, norm_y)
 
     def _on_canvas_position_changed(self, page_idx: int, norm_x: float, norm_y: float):
-        msg = f"✔ Đang đặt chữ ký tại: Trang {page_idx + 1}/{self.canvas.page_count} (X={norm_x*100:.1f}%, Y={norm_y*100:.1f}%)"
+        msg = f"Đang đặt chữ ký tại: Trang {page_idx + 1}/{self.canvas.page_count} (X={norm_x*100:.1f}%, Y={norm_y*100:.1f}%)"
         self.lbl_coord_status.setText(msg)
         self._update_page_nav_controls()
 
@@ -713,22 +713,22 @@ class SignatureDialog(QDialog):
 
             if vgca_count > 0:
                 self.status_box.setStyleSheet("background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 6px 10px;")
-                self.lbl_status_text.setText(f"✔ Đã kết nối USB Token Ban Cơ yếu ({vgca_count} chứng thư)")
+                self.lbl_status_text.setText(f"Đã kết nối USB Token Ban Cơ yếu ({vgca_count} chứng thư)")
                 self.lbl_status_text.setStyleSheet("font-weight: 600; color: #15803d; font-size: 12px;")
             else:
                 self.status_box.setStyleSheet("background-color: #f0f9ff; border: 1px solid #7dd3fc; border-radius: 8px; padding: 6px 10px;")
-                self.lbl_status_text.setText(f"✔ Đã nhận diện {len(self.certs)} chứng thư số khả dụng")
+                self.lbl_status_text.setText(f"Đã nhận diện {len(self.certs)} chứng thư số khả dụng")
                 self.lbl_status_text.setStyleSheet("font-weight: 600; color: #0369a1; font-size: 12px;")
             self.btn_sign.setEnabled(True)
         elif vgca_ok:
             self.status_box.setStyleSheet("background-color: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 6px 10px;")
-            self.lbl_status_text.setText(f"✔ Dịch vụ Ban Cơ yếu ({vgca_msg})")
+            self.lbl_status_text.setText(f"Dịch vụ Ban Cơ yếu ({vgca_msg})")
             self.lbl_status_text.setStyleSheet("font-weight: 600; color: #6d28d9; font-size: 12px;")
             self.rb_vgca.setChecked(True)
             self.btn_sign.setEnabled(True)
         else:
             self.status_box.setStyleSheet("background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px;")
-            self.lbl_status_text.setText("⚠ Chưa phát hiện USB Token. Hãy cắm Token vào máy.")
+            self.lbl_status_text.setText("Chưa phát hiện USB Token. Hãy cắm Token vào máy.")
             self.lbl_status_text.setStyleSheet("font-weight: 600; color: #b45309; font-size: 12px;")
             self.lbl_cert_detail.setText("Không tìm thấy chứng thư số nào.")
             self.btn_sign.setEnabled(False)

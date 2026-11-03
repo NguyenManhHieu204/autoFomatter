@@ -14,7 +14,6 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
 
 from core.path_utils import get_config_dir, get_app_icon_path
-from ui.icon_factory import get_ui_icon
 
 
 class ProfileDialog(QDialog):
@@ -66,14 +65,10 @@ class ProfileDialog(QDialog):
         btn_layout = QHBoxLayout()
         self.btn_new = QPushButton("Thêm mới")
         self.btn_new.setObjectName("btnSecondary")
-        self.btn_new.setIcon(get_ui_icon("file_add"))
-        self.btn_new.setIconSize(QSize(16, 16))
         self.btn_new.clicked.connect(self._on_new_profile)
 
         self.btn_delete = QPushButton("Xóa")
         self.btn_delete.setObjectName("btnSecondary")
-        self.btn_delete.setIcon(get_ui_icon("trash"))
-        self.btn_delete.setIconSize(QSize(16, 16))
         self.btn_delete.clicked.connect(self._on_delete_profile)
 
         btn_layout.addWidget(self.btn_new)
@@ -140,8 +135,6 @@ class ProfileDialog(QDialog):
         action_layout = QHBoxLayout()
         action_layout.addStretch()
         self.btn_save = QPushButton("Lưu hồ sơ này")
-        self.btn_save.setIcon(get_ui_icon("status_success"))
-        self.btn_save.setIconSize(QSize(16, 16))
         self.btn_save.clicked.connect(self._on_save_current_profile)
 
         self.btn_close = QPushButton("Đóng")

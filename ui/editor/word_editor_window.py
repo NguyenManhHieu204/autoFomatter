@@ -29,7 +29,6 @@ from core.editor_core.openxml_builder import OpenXmlBuilder
 from core.legal_constraint_guard import LegalConstraintGuard
 from core.win32_helper import Win32WordHelper
 from ui.signature_dialog import SignatureDialog
-from ui.icon_factory import get_ui_icon
 
 
 class WordEditorWindow(QMainWindow):
@@ -118,7 +117,6 @@ class WordEditorWindow(QMainWindow):
 
         # Nút Lưu file DOCX
         self.btn_save = QPushButton("Lưu văn bản (.docx)")
-        self.btn_save.setIcon(get_ui_icon("file_word"))
         self.btn_save.setObjectName("btnPrimary")
         self.btn_save.setStyleSheet("""
             QPushButton#btnPrimary {
@@ -134,7 +132,6 @@ class WordEditorWindow(QMainWindow):
 
         # Nút Xuất PDF
         self.btn_export_pdf = QPushButton("Xuất tệp PDF")
-        self.btn_export_pdf.setIcon(get_ui_icon("file_pdf"))
         self.btn_export_pdf.setObjectName("btnDanger")
         self.btn_export_pdf.setStyleSheet("""
             QPushButton#btnDanger {
@@ -150,7 +147,6 @@ class WordEditorWindow(QMainWindow):
 
         # Nút Ký số ngay
         self.btn_sign = QPushButton("Ký số điện tử (NĐ 30)")
-        self.btn_sign.setIcon(get_ui_icon("digital_sign"))
         self.btn_sign.setObjectName("btnPurple")
         self.btn_sign.setStyleSheet("""
             QPushButton#btnPurple {
@@ -304,11 +300,11 @@ class WordEditorWindow(QMainWindow):
 
             msg = f"<b>ĐIỂM CHUẨN HÓA THỂ THỨC: {score}/100</b><br/><br/>"
             if audit_res["is_compliant"]:
-                msg += "✔ Văn bản tuân thủ 100% quy chuẩn Nghị định 30/2020/NĐ-CP và Hướng dẫn 36-HD/VPTW.<br/>Sẵn sàng xuất bản và ký số điện tử."
+                msg += "Văn bản tuân thủ 100% quy chuẩn Nghị định 30/2020/NĐ-CP và Hướng dẫn 36-HD/VPTW.<br/>Sẵn sàng xuất bản và ký số điện tử."
             else:
                 msg += f"Phát hiện {errs} lỗi nghiêm trọng và {warns} cảnh báo thể thức:<br/>"
                 for idx, v in enumerate(audit_res["violations"][:5]):
-                    msg += f"<br/><b>{idx + 1}. [{v['severity'].upper()}]</b> {v['message']}<br/><i>👉 Gợi ý: {v['suggestion']}</i>"
+                    msg += f"<br/><b>{idx + 1}. [{v['severity'].upper()}]</b> {v['message']}<br/><i>- Gợi ý: {v['suggestion']}</i>"
 
             QMessageBox.information(self, "Kết quả Rà soát Thể thức", msg)
         except Exception as e:

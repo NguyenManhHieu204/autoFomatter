@@ -22,7 +22,6 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QFont, QColor, QPixm
 from core.formatter_engine import FormatterEngine, FormattingReport
 from core.win32_helper import Win32WordHelper
 from core.path_utils import get_config_dir, get_app_icon_path
-from ui.icon_factory import get_ui_icon, get_ui_pixmap
 from ui.styles import MAIN_STYLE
 from ui.quick_wizard_dialog import QuickWizardDialog
 from ui.editor.word_editor_window import WordEditorWindow
@@ -177,12 +176,16 @@ class DropZoneWidget(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(6)
 
-        self.lbl_icon = QLabel()
-        self.lbl_icon.setPixmap(get_ui_pixmap("cloud_upload", 46))
-        self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_badge = QLabel("TIẾP NHẬN DỮ LIỆU ĐẦU VÀO")
+        self.lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_badge.setStyleSheet("""
+            color: #2563eb; font-size: 11px; font-weight: 700;
+            background-color: #eff6ff; border: 1px solid #bfdbfe;
+            border-radius: 10px; padding: 3px 12px; margin-bottom: 2px;
+        """)
 
         self.lbl_text = QLabel("KÉO VÀ THẢ TỆP DỰ THẢO HOẶC THƯ MỤC VÀO ĐÂY")
         self.lbl_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -192,7 +195,7 @@ class DropZoneWidget(QFrame):
         self.lbl_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_sub.setStyleSheet("color: #64748b; font-size: 11px;")
 
-        layout.addWidget(self.lbl_icon)
+        layout.addWidget(self.lbl_badge, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_text)
         layout.addWidget(self.lbl_sub)
 
@@ -301,15 +304,15 @@ class MainWindow(QMainWindow):
 
         # 1. Menu Tệp
         menu_file = menubar.addMenu("Tệp")
-        act_new = menu_file.addAction(get_ui_icon("file_word"), "Soạn thảo văn bản mới...")
+        act_new = menu_file.addAction("Soạn thảo văn bản mới...")
         act_new.setShortcut("Ctrl+N")
         act_new.triggered.connect(self._open_quick_wizard)
 
-        act_add_file = menu_file.addAction(get_ui_icon("file_add"), "Thêm tệp dự thảo...")
+        act_add_file = menu_file.addAction("Thêm tệp dự thảo...")
         act_add_file.setShortcut("Ctrl+O")
         act_add_file.triggered.connect(self._choose_files_dialog)
 
-        act_add_folder = menu_file.addAction(get_ui_icon("folder_add"), "Thêm thư mục...")
+        act_add_folder = menu_file.addAction("Thêm thư mục...")
         act_add_folder.triggered.connect(self._choose_folder_dialog)
 
         menu_file.addSeparator()
@@ -319,29 +322,29 @@ class MainWindow(QMainWindow):
 
         # 2. Menu Soạn thảo
         menu_edit = menubar.addMenu("Soạn thảo")
-        act_wiz = menu_edit.addAction(get_ui_icon("file_word"), "Khởi tạo nhanh từ mẫu chuẩn (Template Wizard)...")
+        act_wiz = menu_edit.addAction("Khởi tạo nhanh từ mẫu chuẩn (Template Wizard)...")
         act_wiz.setShortcut("Ctrl+Shift+N")
         act_wiz.triggered.connect(self._open_quick_wizard)
 
-        act_emb = menu_edit.addAction(get_ui_icon("edit"), "Trình soạn thảo văn bản tích hợp...")
+        act_emb = menu_edit.addAction("Trình soạn thảo văn bản tích hợp...")
         act_emb.setShortcut("F4")
         act_emb.triggered.connect(self._open_in_embedded_editor)
 
         # 3. Menu Công cụ
         menu_tools = menubar.addMenu("Công cụ")
-        act_sign = menu_tools.addAction(get_ui_icon("signature"), "Ký số điện tử (Nghị định 30)...")
+        act_sign = menu_tools.addAction("Ký số điện tử (Nghị định 30)...")
         act_sign.setShortcut("Ctrl+K")
         act_sign.triggered.connect(self._open_signature_dialog)
 
-        act_prof = menu_tools.addAction(get_ui_icon("settings"), "Quản lý Hồ sơ Cơ quan & Đơn vị...")
+        act_prof = menu_tools.addAction("Quản lý Hồ sơ Cơ quan & Đơn vị...")
         act_prof.triggered.connect(self._open_profile_dialog)
 
-        act_ocr = menu_tools.addAction(get_ui_icon("table"), "Nhận dạng lại bảng biểu (Table OCR)...")
+        act_ocr = menu_tools.addAction("Nhận dạng lại bảng biểu (Table OCR)...")
         act_ocr.triggered.connect(self._run_ocr_on_selected_file)
 
         # 4. Menu Trợ giúp
         menu_help = menubar.addMenu("Trợ giúp")
-        act_about = menu_help.addAction(get_ui_icon("info"), "Thông tin phiên bản Auto-Formatter")
+        act_about = menu_help.addAction("Thông tin phiên bản Auto-Formatter")
         act_about.triggered.connect(self._show_about_dialog)
 
     def _show_about_dialog(self):
@@ -392,8 +395,6 @@ class MainWindow(QMainWindow):
         row_tools_1.setSpacing(6)
 
         self.btn_add_files = QPushButton("Thêm tệp dự thảo...")
-        self.btn_add_files.setIcon(get_ui_icon("file_add"))
-        self.btn_add_files.setIconSize(QSize(16, 16))
         self.btn_add_files.setStyleSheet("""
             QPushButton {
                 background-color: #2563eb; color: #ffffff; font-weight: 600;
@@ -405,8 +406,6 @@ class MainWindow(QMainWindow):
         self.btn_add_files.clicked.connect(self._choose_files_dialog)
 
         self.btn_add_folder = QPushButton("Thêm thư mục...")
-        self.btn_add_folder.setIcon(get_ui_icon("folder_add"))
-        self.btn_add_folder.setIconSize(QSize(16, 16))
         self.btn_add_folder.setStyleSheet("""
             QPushButton {
                 background-color: #0284c7; color: #ffffff; font-weight: 600;
@@ -418,8 +417,6 @@ class MainWindow(QMainWindow):
         self.btn_add_folder.clicked.connect(self._choose_folder_dialog)
 
         self.btn_quick_create = QPushButton("Soạn thảo mới")
-        self.btn_quick_create.setIcon(get_ui_icon("file_word"))
-        self.btn_quick_create.setIconSize(QSize(16, 16))
         self.btn_quick_create.setStyleSheet("""
             QPushButton {
                 background-color: #059669; color: #ffffff; font-weight: 600;
@@ -439,8 +436,6 @@ class MainWindow(QMainWindow):
         row_tools_2.setSpacing(6)
 
         self.btn_remove_file = QPushButton("Xóa tệp chọn")
-        self.btn_remove_file.setIcon(get_ui_icon("trash"))
-        self.btn_remove_file.setIconSize(QSize(15, 15))
         self.btn_remove_file.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff; color: #dc2626; font-weight: 600;
@@ -451,8 +446,6 @@ class MainWindow(QMainWindow):
         self.btn_remove_file.clicked.connect(self._remove_selected_file)
 
         self.btn_clear_all = QPushButton("Làm mới danh sách")
-        self.btn_clear_all.setIcon(get_ui_icon("clear_all"))
-        self.btn_clear_all.setIconSize(QSize(15, 15))
         self.btn_clear_all.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff; color: #475569; font-weight: 600;
@@ -520,12 +513,12 @@ class MainWindow(QMainWindow):
         lbl_prof = QLabel("Hồ sơ cơ quan ban hành:")
         lbl_prof.setStyleSheet("font-weight: 600; color: #1e293b; font-size: 12px;")
 
-        self.btn_manage_prof = QPushButton("⚙ Quản lý...")
+        self.btn_manage_prof = QPushButton("Quản lý hồ sơ...")
         self.btn_manage_prof.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_manage_prof.setStyleSheet("""
             QPushButton {
                 background-color: #f1f5f9; color: #0284c7; font-weight: 600;
-                font-size: 11.5px; padding: 3px 8px; border-radius: 4px; border: 1px solid #cbd5e1;
+                font-size: 11.5px; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1;
             }
             QPushButton:hover { background-color: #e2e8f0; color: #0369a1; }
         """)
@@ -567,12 +560,10 @@ class MainWindow(QMainWindow):
 
         left_layout.addWidget(config_group)
 
-        # Nút Chạy và Nút Hủy (Hiện đại, tương phản cao, nổi bật)
+        # Nút Chạy và Nút Hủy (Hiện đại, tương phản cao, nổi bật, không dùng icon)
         run_btns_layout = QHBoxLayout()
         self.btn_start = QPushButton("BẮT ĐẦU CHUẨN HÓA THỂ THỨC")
         self.btn_start.setObjectName("btnRun")
-        self.btn_start.setIcon(get_ui_icon("play"))
-        self.btn_start.setIconSize(QSize(18, 18))
         self.btn_start.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10b981, stop:1 #059669);
@@ -599,8 +590,6 @@ class MainWindow(QMainWindow):
 
         self.btn_cancel = QPushButton("Dừng lại")
         self.btn_cancel.setObjectName("btnSecondary")
-        self.btn_cancel.setIcon(get_ui_icon("stop"))
-        self.btn_cancel.setIconSize(QSize(16, 16))
         self.btn_cancel.setStyleSheet("""
             QPushButton {
                 background-color: #fee2e2; color: #dc2626; font-weight: bold;
@@ -611,10 +600,6 @@ class MainWindow(QMainWindow):
         """)
         self.btn_cancel.setEnabled(False)
         self.btn_cancel.clicked.connect(self._cancel_processing)
-
-        run_btns_layout.addWidget(self.btn_start, 3)
-        run_btns_layout.addWidget(self.btn_cancel, 1)
-        left_layout.addLayout(run_btns_layout)
 
         run_btns_layout.addWidget(self.btn_start, 3)
         run_btns_layout.addWidget(self.btn_cancel, 1)
@@ -638,10 +623,10 @@ class MainWindow(QMainWindow):
         # 4 Thẻ thống kê với biểu tượng nhận diện chuyên biệt và hỗ trợ lọc danh mục
         stats_layout = QHBoxLayout()
 
-        self.card_paragraphs = self._create_stat_card("Đoạn văn chuẩn hóa", "0", "stat_paragraph", "all", "#eff6ff", "#bfdbfe")
-        self.card_spaces = self._create_stat_card("Khoảng trắng dọn", "0", "stat_whitespace", "whitespace", "#ecfeff", "#a5f3fc")
-        self.card_punct = self._create_stat_card("Chính tả & Dấu câu", "0", "stat_punctuation", "spelling_punct", "#f0fdf4", "#bbf7d0")
-        self.card_warnings = self._create_stat_card("Cảnh báo viết hoa", "0", "stat_warning", "capitalization", "#fffbeb", "#fde68a")
+        self.card_paragraphs = self._create_stat_card("Đoạn văn chuẩn hóa", "0", "all", "#2563eb", "#eff6ff")
+        self.card_spaces = self._create_stat_card("Khoảng trắng dọn", "0", "whitespace", "#0284c7", "#ecfeff")
+        self.card_punct = self._create_stat_card("Chính tả & Dấu câu", "0", "spelling_punct", "#059669", "#f0fdf4")
+        self.card_warnings = self._create_stat_card("Cảnh báo viết hoa", "0", "capitalization", "#d97706", "#fffbeb")
 
         self.stat_cards = [self.card_paragraphs, self.card_spaces, self.card_punct, self.card_warnings]
 
@@ -677,13 +662,11 @@ class MainWindow(QMainWindow):
 
         right_layout.addWidget(self.report_group, 1)
 
-        # Thanh nút thao tác trên file đã hoàn thành (Trực quan, tương phản cao, nút Soạn thảo & Ký số luôn khả dụng)
+        # Thanh nút thao tác trên file đã hoàn thành (Trực quan, tương phản cao, không dùng icon)
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(8)
 
         self.btn_run_ocr = QPushButton("Nhận dạng & Chuẩn hóa")
-        self.btn_run_ocr.setIcon(get_ui_icon("ocr_scan"))
-        self.btn_run_ocr.setIconSize(QSize(16, 16))
         self.btn_run_ocr.setStyleSheet("""
             QPushButton {
                 background-color: #d97706; color: #ffffff; font-weight: 600;
@@ -696,8 +679,6 @@ class MainWindow(QMainWindow):
         self.btn_run_ocr.clicked.connect(self._run_ocr_on_selected_file)
 
         self.btn_embedded_edit = QPushButton("Soạn thảo tích hợp")
-        self.btn_embedded_edit.setIcon(get_ui_icon("file_word"))
-        self.btn_embedded_edit.setIconSize(QSize(16, 16))
         self.btn_embedded_edit.setStyleSheet("""
             QPushButton {
                 background-color: #059669; color: #ffffff; font-weight: 600;
@@ -711,8 +692,6 @@ class MainWindow(QMainWindow):
         self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
 
         self.btn_open_word = QPushButton("Mở file Word")
-        self.btn_open_word.setIcon(get_ui_icon("file_word"))
-        self.btn_open_word.setIconSize(QSize(16, 16))
         self.btn_open_word.setStyleSheet("""
             QPushButton {
                 background-color: #2563eb; color: #ffffff; font-weight: 600;
@@ -725,8 +704,6 @@ class MainWindow(QMainWindow):
         self.btn_open_word.clicked.connect(self._open_output_word)
 
         self.btn_open_pdf = QPushButton("Mở file PDF")
-        self.btn_open_pdf.setIcon(get_ui_icon("file_pdf"))
-        self.btn_open_pdf.setIconSize(QSize(16, 16))
         self.btn_open_pdf.setStyleSheet("""
             QPushButton {
                 background-color: #dc2626; color: #ffffff; font-weight: 600;
@@ -739,8 +716,6 @@ class MainWindow(QMainWindow):
         self.btn_open_pdf.clicked.connect(self._open_output_pdf)
 
         self.btn_sign_pdf = QPushButton("Ký số (NĐ 30)")
-        self.btn_sign_pdf.setIcon(get_ui_icon("digital_sign"))
-        self.btn_sign_pdf.setIconSize(QSize(16, 16))
         self.btn_sign_pdf.setStyleSheet("""
             QPushButton {
                 background-color: #7c3aed; color: #ffffff; font-weight: 600;
@@ -754,8 +729,6 @@ class MainWindow(QMainWindow):
         self.btn_sign_pdf.clicked.connect(self._open_signature_dialog)
 
         self.btn_open_dir = QPushButton("Mở thư mục")
-        self.btn_open_dir.setIcon(get_ui_icon("folder_open"))
-        self.btn_open_dir.setIconSize(QSize(16, 16))
         self.btn_open_dir.setStyleSheet("""
             QPushButton {
                 background-color: #334155; color: #ffffff; font-weight: 600;
@@ -764,8 +737,6 @@ class MainWindow(QMainWindow):
             QPushButton:hover { background-color: #1e293b; }
             QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border: 1px solid #cbd5e1; }
         """)
-        self.btn_open_dir.setEnabled(False)
-        self.btn_open_dir.clicked.connect(self._open_output_folder)
         self.btn_open_dir.setEnabled(False)
         self.btn_open_dir.clicked.connect(self._open_output_folder)
 
@@ -788,7 +759,7 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(splitter)
 
-    def _create_stat_card(self, title: str, initial_value: str, icon_name: str, category: str, bg_tint: str = "#eff6ff", border_tint: str = "#bfdbfe") -> QFrame:
+    def _create_stat_card(self, title: str, initial_value: str, category: str, accent_color: str = "#2563eb", bg_tint: str = "#eff6ff") -> QFrame:
         card = QFrame()
         card.setObjectName("statCard")
         card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -796,6 +767,7 @@ class MainWindow(QMainWindow):
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setProperty("active", "false")
         card.category = category
+        card.accent_color = accent_color
 
         if category == "all":
             card.setToolTip("Bấm để hiển thị toàn bộ các lỗi & đoạn văn")
@@ -806,26 +778,35 @@ class MainWindow(QMainWindow):
         elif category == "capitalization":
             card.setToolTip("Bấm để lọc và chỉ hiển thị cảnh báo quy tắc viết hoa")
 
-        lay = QHBoxLayout(card)
-        lay.setContentsMargins(10, 8, 10, 8)
-        lay.setSpacing(8)
+        card.setStyleSheet(f"""
+            QFrame#statCard {{
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-top: 3.5px solid {accent_color};
+                border-radius: 6px;
+            }}
+            QFrame#statCard:hover {{
+                background-color: {bg_tint};
+                border-color: {accent_color};
+            }}
+            QFrame#statCard[active="true"] {{
+                background-color: {bg_tint};
+                border: 2px solid {accent_color};
+                border-top: 4px solid {accent_color};
+            }}
+        """)
 
-        lbl_badge = QLabel()
-        lbl_badge.setFixedSize(36, 36)
-        lbl_badge.setStyleSheet(f"background-color: {bg_tint}; border: 1px solid {border_tint}; border-radius: 18px;")
-        lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_badge.setPixmap(get_ui_pixmap(icon_name, 18))
-        lay.addWidget(lbl_badge)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(2)
 
-        info_lay = QVBoxLayout()
-        info_lay.setSpacing(1)
+        lbl_t = QLabel(title.upper())
+        lbl_t.setStyleSheet(f"font-size: 10.5px; font-weight: 700; color: {accent_color}; letter-spacing: 0.3px;")
         lbl_v = QLabel(initial_value)
-        lbl_v.setObjectName("statValue")
-        lbl_t = QLabel(title)
-        lbl_t.setObjectName("statTitle")
-        info_lay.addWidget(lbl_v)
-        info_lay.addWidget(lbl_t)
-        lay.addLayout(info_lay, 1)
+        lbl_v.setStyleSheet("font-size: 21px; font-weight: 800; color: #0f172a;")
+
+        lay.addWidget(lbl_t)
+        lay.addWidget(lbl_v)
 
         card.value_label = lbl_v  # tham chiếu nhanh
         card.mousePressEvent = lambda e, cat=category: self._on_stat_card_clicked(cat)
@@ -920,7 +901,6 @@ class MainWindow(QMainWindow):
                 self.table_files.setItem(row, 1, QTableWidgetItem(size_kb))
 
                 status_item = QTableWidgetItem("Chờ xử lý")
-                status_item.setIcon(get_ui_icon("status_pending"))
                 status_item.setForeground(QColor("#64748b"))
                 self.table_files.setItem(row, 2, status_item)
 
@@ -1008,7 +988,6 @@ class MainWindow(QMainWindow):
             status_item = self.table_files.item(row, 2)
             if status_item:
                 status_item.setText("Đang xử lý...")
-                status_item.setIcon(get_ui_icon("status_running"))
                 status_item.setForeground(QColor("#2563eb"))
             self.table_files.selectRow(row)
 
@@ -1024,19 +1003,15 @@ class MainWindow(QMainWindow):
         if report.success:
             if report.is_scanned_image and not any(i.issue_type == "ocr_processed" for i in report.all_issues):
                 status_item.setText("Tệp ảnh scan (Bảo vệ)")
-                status_item.setIcon(get_ui_icon("status_scan"))
                 status_item.setForeground(QColor("#d97706"))
             elif any(i.issue_type == "ocr_processed" for i in report.all_issues):
                 status_item.setText("Đã OCR & Chuẩn hóa")
-                status_item.setIcon(get_ui_icon("status_ocr_success"))
                 status_item.setForeground(QColor("#16a34a"))
             else:
                 status_item.setText("Đã chuẩn hóa")
-                status_item.setIcon(get_ui_icon("status_success"))
                 status_item.setForeground(QColor("#16a34a"))
         else:
             status_item.setText("Lỗi")
-            status_item.setIcon(get_ui_icon("status_error"))
             status_item.setForeground(QColor("#dc2626"))
 
         # Nếu là dòng được chọn hiện tại hoặc dòng đầu tiên, hiển thị báo cáo
@@ -1144,23 +1119,12 @@ class MainWindow(QMainWindow):
                 "ocr_processed": "Xử lý OCR"
             }.get(issue.issue_type, issue.issue_type)
 
-            type_icons = {
-                "spelling": "stat_punctuation",
-                "punctuation": "stat_punctuation",
-                "whitespace": "stat_whitespace",
-                "quote": "stat_punctuation",
-                "date": "stat_punctuation",
-                "capitalization": "stat_warning",
-                "scanned_image": "status_scan",
-                "ocr_processed": "ocr_scan",
-            }
-            icon_name = type_icons.get(issue.issue_type, "stat_paragraph")
             orig_text = issue.original.strip()
             repl_text = issue.replacement.strip()
             orig_disp = orig_text if len(orig_text) <= 50 else orig_text[:47] + "..."
             repl_disp = repl_text if len(repl_text) <= 50 else repl_text[:47] + "..."
 
-            it_type = QTableWidgetItem(get_ui_icon(icon_name), type_name)
+            it_type = QTableWidgetItem(type_name)
             it_orig = QTableWidgetItem(orig_disp)
             it_orig.setToolTip(orig_text)
             it_repl = QTableWidgetItem(repl_disp)
@@ -1218,7 +1182,6 @@ class MainWindow(QMainWindow):
         status_item = self.table_files.item(row, 2)
         if report.success:
             status_item.setText("Đã OCR & Chuẩn hóa")
-            status_item.setIcon(get_ui_icon("status_ocr_success"))
             status_item.setForeground(QColor("#16a34a"))
             self._display_report(report, com_res)
             QMessageBox.information(
@@ -1229,7 +1192,6 @@ class MainWindow(QMainWindow):
             )
         else:
             status_item.setText("Lỗi OCR")
-            status_item.setIcon(get_ui_icon("status_error"))
             status_item.setForeground(QColor("#dc2626"))
             QMessageBox.critical(self, "Lỗi OCR", f"Không thể nhận dạng OCR: {report.error_message}")
 

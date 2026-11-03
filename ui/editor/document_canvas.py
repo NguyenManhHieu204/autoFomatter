@@ -25,8 +25,6 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
-from ui.icon_factory import get_ui_icon
-
 
 class AdministrativeTextEdit(QTextEdit):
     """Trình biên tập nội dung trang có hỗ trợ phím tắt Word (Ctrl+Enter ngắt trang, bắt tràn dòng)"""
@@ -190,10 +188,10 @@ class PageSheetWidget(QFrame):
         self.sheet_layout.setContentsMargins(113, top_m, 57, 50)
 
         if is_land:
-            self.btn_toggle_orient.setText("🔄 Đổi sang: Trang dọc (210×297 mm)")
+            self.btn_toggle_orient.setText("Đổi sang: Trang dọc (210×297 mm)")
             self.lbl_page_title.setText(f"Trang {self.page_index + 1} (Khổ ngang - Phụ lục / Bảng biểu)")
         else:
-            self.btn_toggle_orient.setText("🔄 Đổi sang: Trang ngang (297×210 mm)")
+            self.btn_toggle_orient.setText("Đổi sang: Trang ngang (297×210 mm)")
             self.lbl_page_title.setText(f"Trang {self.page_index + 1} (Khổ dọc chuẩn)")
 
         self.lbl_page_number.setText(f"- {self.page_index + 1} -")
@@ -269,7 +267,7 @@ class DocumentCanvas(QFrame):
         top_ctrl_bar.addWidget(lbl_page_info)
         top_ctrl_bar.addStretch()
 
-        self.btn_add_page_top = QPushButton("➕ Thêm trang mới (Ngắt trang)")
+        self.btn_add_page_top = QPushButton("Thêm trang mới (Ngắt trang)")
         self.btn_add_page_top.setStyleSheet("""
             QPushButton {
                 background-color: #eff6ff; color: #2563eb; font-weight: 600;
@@ -280,7 +278,7 @@ class DocumentCanvas(QFrame):
         self.btn_add_page_top.clicked.connect(self.insert_page_break)
         top_ctrl_bar.addWidget(self.btn_add_page_top)
 
-        self.btn_add_landscape_top = QPushButton("📊 Thêm trang ngang (Landscape)")
+        self.btn_add_landscape_top = QPushButton("Thêm trang ngang (Landscape)")
         self.btn_add_landscape_top.setStyleSheet("""
             QPushButton {
                 background-color: #f0f9ff; color: #0284c7; font-weight: 600;
@@ -292,7 +290,6 @@ class DocumentCanvas(QFrame):
         top_ctrl_bar.addWidget(self.btn_add_landscape_top)
 
         self.btn_edit_meta = QPushButton("Chỉnh sửa thể thức (F2)")
-        self.btn_edit_meta.setIcon(get_ui_icon("edit"))
         self.btn_edit_meta.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff; color: #1e293b; font-weight: 600;
@@ -645,7 +642,7 @@ class DocumentCanvas(QFrame):
 
         if table:
             menu.addSeparator()
-            tbl_menu = menu.addMenu(get_ui_icon("table"), "Bảng biểu")
+            tbl_menu = menu.addMenu("Bảng biểu")
 
             act_row_above = tbl_menu.addAction("Thêm hàng phía trên")
             act_row_above.triggered.connect(self.insert_table_row_above)
@@ -679,14 +676,14 @@ class DocumentCanvas(QFrame):
             act_del_tbl.triggered.connect(self.delete_current_table)
 
         menu.addSeparator()
-        act_add_p = menu.addAction(get_ui_icon("page_break"), "Thêm trang mới (Ngắt trang)...")
+        act_add_p = menu.addAction("Thêm trang mới (Ngắt trang)...")
         act_add_p.triggered.connect(lambda: self.add_page(orientation="portrait"))
 
-        act_add_l = menu.addAction(get_ui_icon("page_break"), "Thêm trang Phụ lục ngang (Landscape)...")
+        act_add_l = menu.addAction("Thêm trang Phụ lục ngang (Landscape)...")
         act_add_l.triggered.connect(lambda: self.add_page(orientation="landscape"))
 
         menu.addSeparator()
-        act_meta = menu.addAction(get_ui_icon("edit"), "Sửa thể thức (F2)...")
+        act_meta = menu.addAction("Sửa thể thức (F2)...")
         act_meta.triggered.connect(self.open_metadata_editor)
 
         menu.exec(ed.mapToGlobal(pos))
