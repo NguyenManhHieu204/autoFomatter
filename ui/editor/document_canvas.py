@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional, List
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel,
     QFrame, QSizePolicy, QMessageBox, QFileDialog,
-    QPushButton, QMenu
+    QPushButton, QMenu, QGraphicsDropShadowEffect
 )
 from PyQt6.QtGui import (
     QColor, QFont, QTextCursor, QTextCharFormat,
@@ -28,8 +28,54 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from ui.icon_factory import get_ui_icon
 
 
-class PageSheetWidget(QWidget):
-    """Một trang giấy A4 trực quan độc lập"""
+class AdministrativeTextEdit(QTextEdit):
+    """Trình biên tập nội dung trang có hỗ trợ phím tắt Word (Ctrl+Enter ngắt trang, bắt tràn dòng)"""
+    page_break_requested = pyqtSignal()
+    overflow_occurred = pyqtSignal()
+    backspace_at_start = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("""
+            QTextEdit {
+                border: none;
+                background-color: transparent;
+                font-family: 'Times New Roman';
+                font-size: 13pt;
+                color: #0f172a;
+                line-height: 1.25;
+            }
+        """)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.textChanged.connect(self._check_height_overflow)
+
+    def keyPressEvent(self, event):
+        # 1. Ctrl + Enter / Ctrl + Return => Ngắt trang sang trang A4 tiếp theo chuẩn xác
+        if (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.page_break_requested.emit()
+            event.accept()
+            return
+
+        # 2. Backspace ở đầu trang rỗng => Xóa trang và nhảy về trang trước
+        if event.key() == Qt.Key.Key_Backspace:
+            cur = self.textCursor()
+            if cur.position() == 0 and not cur.hasSelection():
+                self.backspace_at_start.emit()
+
+        super().keyPressEvent(event)
+
+    def _check_height_overflow(self):
+        # Tự động phát hiện khi nội dung vượt quá chiều cao trang in A4 thực tế
+        vh = self.viewport().height()
+        if vh > 150:
+            doc_h = self.document().size().height()
+            if doc_h > vh + 12:
+                self.overflow_occurred.emit()
+
+
+class PageSheetWidget(QFrame):
+    """Một trang giấy A4 trực quan độc lập chuẩn quy cách Microsoft Word"""
 
     A4_WIDTH_PX = 794
     A4_HEIGHT_PX = 1123
@@ -37,6 +83,9 @@ class PageSheetWidget(QWidget):
     focus_received = pyqtSignal(int)
     orientation_changed = pyqtSignal(int, str)
     delete_requested = pyqtSignal(int)
+    page_break_shortcut = pyqtSignal(int)
+    page_overflow = pyqtSignal(int)
+    page_backspace_start = pyqtSignal(int)
 
     def __init__(self, page_index: int = 0, orientation: str = "portrait", parent=None):
         super().__init__(parent)
@@ -45,19 +94,28 @@ class PageSheetWidget(QWidget):
         self.zoom = 1.0
 
         self.setObjectName("page_sheet")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            QWidget#page_sheet {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
+            QFrame#page_sheet {
+                background-color: #ffffff !important;
+                border: 1px solid #94a3b8;
                 border-radius: 2px;
             }
         """)
+
+        # Đổ bóng chân thực như trang giấy A4 trên bàn làm việc trong Microsoft Word
+        self.shadow_effect = QGraphicsDropShadowEffect(self)
+        self.shadow_effect.setBlurRadius(20)
+        self.shadow_effect.setOffset(0, 4)
+        self.shadow_effect.setColor(QColor(0, 0, 0, 75))
+        self.setGraphicsEffect(self.shadow_effect)
 
         self.sheet_layout = QVBoxLayout(self)
         self.sheet_layout.setSpacing(6)
 
         # Thanh điều khiển trang (Chỉ hiển thị từ trang 2 trở đi)
         self.top_page_bar = QWidget()
+        self.top_page_bar.setStyleSheet("background: transparent;")
         bar_l = QHBoxLayout(self.top_page_bar)
         bar_l.setContentsMargins(0, 0, 0, 2)
         bar_l.setSpacing(8)
@@ -102,22 +160,13 @@ class PageSheetWidget(QWidget):
         self.sheet_layout.addWidget(self.lbl_page_number)
 
         # Editor nội dung cho trang này
-        self.editor = QTextEdit()
-        self.editor.setStyleSheet("""
-            QTextEdit {
-                border: none;
-                background-color: transparent;
-                font-family: 'Times New Roman';
-                font-size: 13pt;
-                color: #0f172a;
-                line-height: 1.25;
-            }
-        """)
-        self.editor.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.editor = AdministrativeTextEdit(self)
+        self.editor.page_break_requested.connect(lambda: self.page_break_shortcut.emit(self.page_index))
+        self.editor.overflow_occurred.connect(lambda: self.page_overflow.emit(self.page_index))
+        self.editor.backspace_at_start.connect(lambda: self.page_backspace_start.emit(self.page_index))
         self.sheet_layout.addWidget(self.editor, 1)
 
-        # Cài đặt kích thước ban đầu
+        # Cài đặt kích thước ban đầu chuẩn A4
         self.update_geometry()
 
     def _on_toggle_orient_clicked(self):
@@ -134,10 +183,10 @@ class PageSheetWidget(QWidget):
         h = int(base_h * self.zoom)
 
         self.setFixedWidth(w)
-        self.setMinimumHeight(h)
+        self.setFixedHeight(h)  # CỐ ĐỊNH CHIỀU CAO TRANG A4 CHUẨN XÁC - KHÔNG KÉO DÃN TRANG
 
         # Lề NĐ 30: Trái 30mm (~113px), Phải 15mm (~57px), Trên 20mm (~76px), Dưới 20mm (~76px)
-        top_m = 50 if self.page_index == 0 else 24
+        top_m = 60 if self.page_index == 0 else 24
         self.sheet_layout.setContentsMargins(113, top_m, 57, 50)
 
         if is_land:
@@ -150,7 +199,7 @@ class PageSheetWidget(QWidget):
         self.lbl_page_number.setText(f"- {self.page_index + 1} -")
 
 
-class DocumentCanvas(QWidget):
+class DocumentCanvas(QFrame):
     """Bề mặt hiển thị các trang giấy A4 phân vùng soạn thảo trực quan"""
     document_modified = pyqtSignal()
     cursor_position_changed = pyqtSignal(int, int)  # line, col
@@ -186,42 +235,58 @@ class DocumentCanvas(QWidget):
             "signer_name": "Nguyễn Văn A"
         }
 
+        self.setObjectName("document_canvas")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet("""
+            QFrame#document_canvas {
+                background-color: #718096;
+            }
+        """)
+
         # Bố cục chính căn giữa màn hình
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.main_layout.setContentsMargins(0, 16, 0, 40)
-        self.main_layout.setSpacing(14)
+        self.main_layout.setContentsMargins(0, 16, 0, 60)
+        self.main_layout.setSpacing(16)
 
         # 1. Thanh tiện ích phía trên trang giấy (Căn giữa)
         self.top_ctrl_widget = QWidget()
+        self.top_ctrl_widget.setObjectName("top_ctrl_widget")
         self.top_ctrl_widget.setFixedWidth(self.A4_WIDTH_PX)
+        self.top_ctrl_widget.setStyleSheet("""
+            QWidget#top_ctrl_widget {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+            }
+        """)
         top_ctrl_bar = QHBoxLayout(self.top_ctrl_widget)
-        top_ctrl_bar.setContentsMargins(0, 0, 0, 0)
-        top_ctrl_bar.setSpacing(8)
+        top_ctrl_bar.setContentsMargins(12, 6, 12, 6)
+        top_ctrl_bar.setSpacing(10)
 
         lbl_page_info = QLabel("Khổ giấy: A4 (210 × 297 mm) • Chuẩn Thể thức Cấp Xã")
-        lbl_page_info.setStyleSheet("color: #64748b; font-size: 11.5px; font-weight: 500;")
+        lbl_page_info.setStyleSheet("color: #475569; font-size: 11.5px; font-weight: 600; background: transparent;")
         top_ctrl_bar.addWidget(lbl_page_info)
         top_ctrl_bar.addStretch()
 
         self.btn_add_page_top = QPushButton("➕ Thêm trang mới (Ngắt trang)")
         self.btn_add_page_top.setStyleSheet("""
             QPushButton {
-                background-color: #ffffff; color: #2563eb; font-weight: 600;
+                background-color: #eff6ff; color: #2563eb; font-weight: 600;
                 border: 1.5px solid #bfdbfe; border-radius: 4px; padding: 4px 10px; font-size: 11.5px;
             }
-            QPushButton:hover { background-color: #eff6ff; border-color: #2563eb; }
+            QPushButton:hover { background-color: #dbeafe; border-color: #2563eb; }
         """)
-        self.btn_add_page_top.clicked.connect(lambda: self.add_page(orientation="portrait"))
+        self.btn_add_page_top.clicked.connect(self.insert_page_break)
         top_ctrl_bar.addWidget(self.btn_add_page_top)
 
         self.btn_add_landscape_top = QPushButton("📊 Thêm trang ngang (Landscape)")
         self.btn_add_landscape_top.setStyleSheet("""
             QPushButton {
-                background-color: #ffffff; color: #0284c7; font-weight: 600;
+                background-color: #f0f9ff; color: #0284c7; font-weight: 600;
                 border: 1.5px solid #bae6fd; border-radius: 4px; padding: 4px 10px; font-size: 11.5px;
             }
-            QPushButton:hover { background-color: #f0f9ff; border-color: #0284c7; }
+            QPushButton:hover { background-color: #e0f2fe; border-color: #0284c7; }
         """)
         self.btn_add_landscape_top.clicked.connect(lambda: self.add_page(orientation="landscape"))
         top_ctrl_bar.addWidget(self.btn_add_landscape_top)
@@ -243,10 +308,11 @@ class DocumentCanvas(QWidget):
 
         # 2. Khung chứa các trang giấy A4 rời rạc (Pages Layout)
         self.pages_container = QWidget()
+        self.pages_container.setStyleSheet("background: transparent;")
         self.pages_layout = QVBoxLayout(self.pages_container)
         self.pages_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.pages_layout.setContentsMargins(0, 0, 0, 0)
-        self.pages_layout.setSpacing(24)  # Khoảng cách 24px giữa các trang giấy A4 chân thực
+        self.pages_layout.setSpacing(40)  # Khoảng cách 40px giữa các trang giấy A4 tạo ranh giới ngắt trang rõ ràng
         self.main_layout.addWidget(self.pages_container, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Danh sách các trang A4
@@ -383,6 +449,9 @@ class DocumentCanvas(QWidget):
 
         page.delete_requested.connect(self.remove_page)
         page.orientation_changed.connect(self._on_page_orientation_changed)
+        page.page_break_shortcut.connect(self.split_page_at_cursor)
+        page.page_overflow.connect(self._on_page_overflow)
+        page.page_backspace_start.connect(self._on_backspace_at_start)
 
         self._active_page_idx = idx
         page.update_geometry()
@@ -862,15 +931,71 @@ class DocumentCanvas(QWidget):
             self.document_modified.emit()
 
     def insert_page_break(self):
-        """Hành động ngắt trang: Tạo trang A4 tiếp theo độc lập"""
-        ed = self.active_editor
-        if ed:
-            cursor = ed.textCursor()
-            cursor.insertHtml("<div style='margin: 14px 0; border-top: 1.5px dashed #cbd5e1; text-align: center;'><span style='background-color: #f1f5f9; color: #64748b; font-size: 9pt; padding: 2px 14px; border-radius: 4px; font-family: Segoe UI, sans-serif;'>[NGẮT TRANG / PAGE BREAK]</span></div><p style='text-indent: 36px;'><br/></p>")
-            ed.setTextCursor(cursor)
+        """Hành động ngắt trang: Tách nội dung sang trang mới chuẩn xác như Word"""
+        self.split_page_at_cursor(self._active_page_idx)
 
-        # Tạo trang mới
-        self.add_page(orientation="portrait")
+    def split_page_at_cursor(self, page_idx: int):
+        """Ngắt trang chuẩn xác như Microsoft Word:
+        - Tách toàn bộ đoạn văn từ vị trí con trỏ hiện tại sang trang tiếp theo
+        - Tạo trang A4 mới với khung viền và đổ bóng rõ ràng
+        - Tuyệt đối không chèn chữ thô làm hỏng bố cục văn bản
+        """
+        if not (0 <= page_idx < len(self.pages)):
+            self.add_page(orientation="portrait")
+            return
+
+        cur_page = self.pages[page_idx]
+        cur = cur_page.editor.textCursor()
+
+        # Chọn từ vị trí con trỏ đến hết văn bản của trang hiện tại
+        cur.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        trailing_text = cur.selectedText()
+        trailing_html = cur.selection().toHtml() if trailing_text.strip() else ""
+        cur.removeSelectedText()
+
+        # Thêm trang A4 mới
+        new_page = self.add_page(orientation="portrait")
+
+        # Nếu có đoạn văn phía sau con trỏ, chuyển sang trang mới
+        if trailing_text.strip():
+            new_page.editor.setHtml(trailing_html)
+            c = new_page.editor.textCursor()
+            c.movePosition(QTextCursor.MoveOperation.Start)
+            new_page.editor.setTextCursor(c)
+        else:
+            new_page.editor.setFocus()
+
+        self.document_modified.emit()
+
+    def _on_page_overflow(self, page_idx: int):
+        """Tự động nhảy sang trang mới khi nội dung hết trang (Auto-pagination)"""
+        if not (0 <= page_idx < len(self.pages)):
+            return
+        cur_page = self.pages[page_idx]
+        cur = cur_page.editor.textCursor()
+
+        # Nếu con trỏ đang ở cuối trang thì tự động nhảy tiếp sang trang mới
+        if cur.atEnd():
+            if page_idx + 1 >= len(self.pages):
+                new_page = self.add_page(orientation="portrait")
+                new_page.editor.setFocus()
+            else:
+                self.pages[page_idx + 1].editor.setFocus()
+
+    def _on_backspace_at_start(self, page_idx: int):
+        """Khi bấm Backspace ở đầu trang rỗng: xóa trang thừa và nhảy về cuối trang trước"""
+        if page_idx <= 0 or page_idx >= len(self.pages):
+            return
+        cur_page = self.pages[page_idx]
+        prev_page = self.pages[page_idx - 1]
+
+        # Nếu trang hiện tại hoàn toàn rỗng, xóa trang này
+        if not cur_page.editor.toPlainText().strip():
+            self.remove_page(page_idx)
+            prev_cur = prev_page.editor.textCursor()
+            prev_cur.movePosition(QTextCursor.MoveOperation.End)
+            prev_page.editor.setTextCursor(prev_cur)
+            prev_page.editor.setFocus()
 
     def get_body_paragraphs(self) -> List[str]:
         """Trích xuất danh sách các đoạn văn bản trong toàn bộ các trang để chuyển giao sang OpenXmlBuilder"""

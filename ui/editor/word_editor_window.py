@@ -42,9 +42,10 @@ class WordEditorWindow(QMainWindow):
         self.current_file_path = current_file_path
         self.win32_helper = Win32WordHelper()
 
-        # Widget trung tâm
+        # Widget trung tâm (Bàn làm việc màu xám đậm chuyên nghiệp chuẩn Word)
         central_widget = QWidget()
-        central_widget.setStyleSheet("background-color: #cbd5e1;")
+        central_widget.setObjectName("central_workspace")
+        central_widget.setStyleSheet("QWidget#central_workspace { background-color: #718096; }")
         self.setCentralWidget(central_widget)
 
         main_layout = QVBoxLayout(central_widget)
@@ -71,7 +72,13 @@ class WordEditorWindow(QMainWindow):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #94a3b8; }")
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #718096;
+            }
+        """)
+        self.scroll_area.viewport().setStyleSheet("background-color: #718096;")
 
         self.canvas = DocumentCanvas()
         if initial_metadata:

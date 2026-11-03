@@ -212,11 +212,11 @@ class TestEmbeddedEditor(unittest.TestCase):
         canvas.delete_table_col()
         self.assertEqual(tbl.columns(), 3)
 
-        # 3. Kiểm tra danh sách & ngắt trang
+        # 3. Kiểm tra danh sách & ngắt trang (phân tách trang rời rạc thực tế)
         canvas.insert_bullet_list()
         canvas.insert_numbered_list()
         canvas.insert_page_break()
-        self.assertIn("NGẮT TRANG", canvas.body_editor.toHtml())
+        self.assertEqual(len(canvas.pages), 2)
 
         # 4. Kiểm tra hộp thoại cấu hình bảng
         dlg_tbl = TablePropertiesDialog()
