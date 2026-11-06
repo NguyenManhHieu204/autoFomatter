@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QScrollArea, QSlider, QStatusBar, QMessageBox,
-    QFileDialog, QFrame, QApplication
+    QFileDialog, QFrame, QApplication, QInputDialog
 )
 from PyQt6.QtGui import QIcon, QFont, QColor, QShortcut, QKeySequence
 from PyQt6.QtCore import Qt, QSize
@@ -107,13 +107,78 @@ class WordEditorWindow(QMainWindow):
         bar_layout.setContentsMargins(16, 6, 16, 6)
         bar_layout.setSpacing(10)
 
-        # Tiêu đề tài liệu
+        # Quick Access: Nút Quay lại (Undo) & Làm lại (Redo) ở phía trên giống Microsoft Word
+        self.btn_undo = QPushButton("Quay lại")
+        self.btn_undo.setObjectName("btnTopUndo")
+        self.btn_undo.setToolTip("Quay lại thao tác trước (Ctrl+Z)")
+        self.btn_undo.setStyleSheet("""
+            QPushButton {
+                background-color: #f8fafc; color: #1e293b; font-weight: 600;
+                font-size: 12px; padding: 5px 12px; border-radius: 5px;
+                border: 1px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #e2e8f0; border-color: #94a3b8; }
+            QPushButton:pressed { background-color: #cbd5e1; }
+        """)
+        self.btn_undo.clicked.connect(self._on_undo)
+        bar_layout.addWidget(self.btn_undo)
+
+        self.btn_redo = QPushButton("Làm lại")
+        self.btn_redo.setObjectName("btnTopRedo")
+        self.btn_redo.setToolTip("Làm lại thao tác vừa quay lại (Ctrl+Y)")
+        self.btn_redo.setStyleSheet("""
+            QPushButton {
+                background-color: #f8fafc; color: #1e293b; font-weight: 600;
+                font-size: 12px; padding: 5px 12px; border-radius: 5px;
+                border: 1px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #e2e8f0; border-color: #94a3b8; }
+            QPushButton:pressed { background-color: #cbd5e1; }
+        """)
+        self.btn_redo.clicked.connect(self._on_redo)
+        bar_layout.addWidget(self.btn_redo)
+
+        # Phân cách nhỏ
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet("color: #cbd5e1; max-height: 22px;")
+        bar_layout.addWidget(sep)
+
+        # Tiêu đề tài liệu (Bấm trực tiếp hoặc bấm nút Đổi tên để đổi tên file như Word)
         doc_title = "Trình soạn thảo văn bản hành chính"
         if self.current_file_path:
             doc_title = os.path.basename(self.current_file_path)
+
         self.lbl_doc_title = QLabel(doc_title)
-        self.lbl_doc_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 13.5px;")
+        self.lbl_doc_title.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lbl_doc_title.setStyleSheet("""
+            QLabel {
+                color: #0f172a; font-weight: 700; font-size: 13.5px;
+                padding: 4px 6px; border-radius: 4px;
+            }
+            QLabel:hover {
+                background-color: #f1f5f9; color: #2563eb;
+            }
+        """)
+        self.lbl_doc_title.setToolTip("Bấm chuột vào đây để đổi tên tệp tin")
+        self.lbl_doc_title.mousePressEvent = lambda event: self._rename_document_file()
         bar_layout.addWidget(self.lbl_doc_title)
+
+        self.btn_rename_file = QPushButton("Đổi tên")
+        self.btn_rename_file.setObjectName("btnRenameDoc")
+        self.btn_rename_file.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_rename_file.setToolTip("Đổi tên tệp văn bản này")
+        self.btn_rename_file.setStyleSheet("""
+            QPushButton {
+                background-color: transparent; color: #2563eb; font-weight: 500;
+                font-size: 11px; padding: 3px 8px; border-radius: 4px;
+                border: 1px solid #bfdbfe;
+            }
+            QPushButton:hover { background-color: #eff6ff; border-color: #2563eb; }
+        """)
+        self.btn_rename_file.clicked.connect(self._rename_document_file)
+        bar_layout.addWidget(self.btn_rename_file)
 
         bar_layout.addStretch()
 
@@ -232,6 +297,7 @@ class WordEditorWindow(QMainWindow):
         self.ribbon.apply_nd30_spacing_triggered.connect(self.canvas.apply_nd30_spacing)
         self.ribbon.bullet_list_triggered.connect(self.canvas.insert_bullet_list)
         self.ribbon.numbered_list_triggered.connect(self.canvas.insert_numbered_list)
+        self.ribbon.apply_list_format_triggered.connect(self.canvas.apply_list_format)
         self.ribbon.insert_symbol_requested.connect(self.canvas.insert_symbol)
 
         # 2. Thao tác Chèn & Bảng biểu
@@ -264,8 +330,90 @@ class WordEditorWindow(QMainWindow):
         self.shortcut_f2 = QShortcut(QKeySequence("F2"), self)
         self.shortcut_f2.activated.connect(self.canvas.open_metadata_editor)
 
+        # Phím tắt Quay lại (Undo: Ctrl+Z) & Làm lại (Redo: Ctrl+Y)
+        self.shortcut_undo = QShortcut(QKeySequence.StandardKey.Undo, self)
+        self.shortcut_undo.activated.connect(self._on_undo)
+        self.shortcut_redo = QShortcut(QKeySequence.StandardKey.Redo, self)
+        self.shortcut_redo.activated.connect(self._on_redo)
+        self.shortcut_redo_alt = QShortcut(QKeySequence("Ctrl+Y"), self)
+        self.shortcut_redo_alt.activated.connect(self._on_redo)
+
         # 5. Cập nhật vị trí con trỏ
         self.canvas.cursor_position_changed.connect(self._on_canvas_cursor_moved)
+
+    def _on_undo(self):
+        """Quay lại thao tác trước đó (Ctrl+Z)"""
+        ed = self.canvas.active_editor
+        if ed:
+            ed.undo()
+            self.canvas.document_modified.emit()
+
+    def _on_redo(self):
+        """Làm lại thao tác vừa quay lại (Ctrl+Y)"""
+        ed = self.canvas.active_editor
+        if ed:
+            ed.redo()
+            self.canvas.document_modified.emit()
+
+    def _rename_document_file(self):
+        """Cho phép người dùng nhấp vào tiêu đề để đổi tên tệp tin trực tiếp (như Microsoft Word / Office 365)"""
+        curr_name = ""
+        if self.current_file_path:
+            curr_name = os.path.basename(self.current_file_path)
+        else:
+            curr_name = self.lbl_doc_title.text()
+
+        # Tách đuôi .docx nếu có để người dùng nhập tên thân thiện
+        stem, ext = os.path.splitext(curr_name)
+        if not stem:
+            stem = "Van_Ban_Hanh_Chinh"
+
+        new_stem, ok = QInputDialog.getText(
+            self,
+            "Đổi tên tệp văn bản",
+            "Nhập tên tệp văn bản mới (không cần đuôi .docx):",
+            text=stem
+        )
+        if not ok or not new_stem.strip():
+            return
+
+        new_stem = new_stem.strip()
+        # Loại bỏ các ký tự cấm trong tên file Windows: \ / : * ? " < > |
+        for ch in r'\/:*?"<>|':
+            new_stem = new_stem.replace(ch, '_')
+
+        new_filename = f"{new_stem}.docx"
+
+        # Nếu tệp đã tồn tại trên đĩa, tiến hành đổi tên tệp thực tế
+        if self.current_file_path and os.path.exists(self.current_file_path):
+            dir_name = os.path.dirname(self.current_file_path)
+            new_file_path = os.path.join(dir_name, new_filename)
+            if os.path.abspath(new_file_path) != os.path.abspath(self.current_file_path):
+                if os.path.exists(new_file_path):
+                    QMessageBox.warning(
+                        self,
+                        "Trùng tên tệp",
+                        f"Tệp '{new_filename}' đã tồn tại trong thư mục.\nVui lòng chọn một tên khác!"
+                    )
+                    return
+                try:
+                    os.rename(self.current_file_path, new_file_path)
+                    self.current_file_path = new_file_path
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Lỗi đổi tên tệp",
+                        f"Không thể đổi tên tệp trên đĩa:\n{str(e)}"
+                    )
+                    return
+        elif self.current_file_path:
+            dir_name = os.path.dirname(self.current_file_path)
+            self.current_file_path = os.path.join(dir_name, new_filename)
+
+        # Cập nhật hiển thị tiêu đề
+        self.lbl_doc_title.setText(new_filename)
+        self.setWindowTitle(f"Soạn thảo Văn bản — {new_filename}")
+        self.statusBar().showMessage(f"Đã đổi tên tài liệu thành: {new_filename}", 4000)
 
     def _on_canvas_cursor_moved(self, line: int, col: int):
         self.lbl_cursor_pos.setText(f"Dòng: {line}, Cột: {col}")

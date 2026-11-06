@@ -48,6 +48,7 @@ class AdministrativeRibbonBar(QWidget):
 
     bullet_list_triggered = pyqtSignal()
     numbered_list_triggered = pyqtSignal()
+    apply_list_format_triggered = pyqtSignal(dict)
 
     insert_table_requested = pyqtSignal()
     insert_image_requested = pyqtSignal()
@@ -327,21 +328,71 @@ class AdministrativeRibbonBar(QWidget):
         self.btn_inc_indent.clicked.connect(self.increase_indent_triggered.emit)
         row_align.addWidget(self.btn_inc_indent)
 
-        # Nút danh sách Bullet & Đánh số
+        # Nút danh sách Bullet (Kèm menu chọn kiểu ký hiệu)
         self.btn_bullet = QToolButton()
         self.btn_bullet.setIcon(self._icon("list_bullet.svg"))
         self.btn_bullet.setIconSize(QSize(18, 18))
-        self.btn_bullet.setFixedSize(28, 26)
-        self.btn_bullet.setToolTip("Danh sách gạch đầu dòng (-)")
+        self.btn_bullet.setFixedSize(38, 26)
+        self.btn_bullet.setToolTip("Danh sách ký hiệu đầu dòng (Nhấp để bật/tắt, bấm mũi tên để chọn kiểu)")
+        self.btn_bullet.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.btn_bullet.clicked.connect(self.bullet_list_triggered.emit)
+
+        menu_bullet = QMenu(self.btn_bullet)
+        menu_bullet.setStyleSheet("QMenu { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; font-size: 12px; } QMenu::item:selected { background-color: #eff6ff; color: #1d4ed8; }")
+        act_b_disc = menu_bullet.addAction("•   Dấu chấm tròn đặc (Disc)")
+        act_b_disc.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "disc"}))
+        act_b_circle = menu_bullet.addAction("○   Dấu tròn rỗng (Circle)")
+        act_b_circle.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "circle"}))
+        act_b_square = menu_bullet.addAction("■   Dấu ô vuông (Square)")
+        act_b_square.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "square"}))
+        self.btn_bullet.setMenu(menu_bullet)
         row_align.addWidget(self.btn_bullet)
 
+        # Nút Đánh số tự động (Kèm menu phân cấp, La Mã, chữ cái, điều khoản)
         self.btn_num = QToolButton()
         self.btn_num.setIcon(self._icon("list_numbers.svg"))
         self.btn_num.setIconSize(QSize(18, 18))
-        self.btn_num.setFixedSize(28, 26)
-        self.btn_num.setToolTip("Đánh số tự động (1, 2, 3)")
+        self.btn_num.setFixedSize(38, 26)
+        self.btn_num.setToolTip("Đánh số tự động (Nhấp để bật/tắt, bấm mũi tên để chọn kiểu)")
+        self.btn_num.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         self.btn_num.clicked.connect(self.numbered_list_triggered.emit)
+
+        menu_num = QMenu(self.btn_num)
+        menu_num.setStyleSheet("QMenu { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; font-size: 12px; } QMenu::item:selected { background-color: #eff6ff; color: #1d4ed8; }")
+        
+        act_num_dec = menu_num.addAction("1.  2.  3.  (Số Ả Rập chuẩn)")
+        act_num_dec.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "decimal", "suffix": "."}))
+
+        act_num_paren = menu_num.addAction("1)  2)  3)  (Số đóng ngoặc đơn)")
+        act_num_paren.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "decimal", "suffix": ")"}))
+
+        act_num_roman_u = menu_num.addAction("I.  II.  III.  (Số La Mã in hoa)")
+        act_num_roman_u.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "roman_upper", "suffix": "."}))
+
+        act_num_roman_l = menu_num.addAction("i.  ii.  iii.  (Số La Mã chữ thường)")
+        act_num_roman_l.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "roman_lower", "suffix": "."}))
+
+        act_num_alpha_l = menu_num.addAction("a)  b)  c)  (Điểm quy định — NĐ 30)")
+        act_num_alpha_l.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "alpha_lower", "suffix": ")"}))
+
+        act_num_alpha_u = menu_num.addAction("A.  B.  C.  (Chữ cái in hoa)")
+        act_num_alpha_u.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "alpha_upper", "suffix": "."}))
+
+        act_num_clause = menu_num.addAction("Điều 1.  Điều 2.  (Điều khoản văn bản)")
+        act_num_clause.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "decimal", "prefix": "Điều ", "suffix": "."}))
+
+        act_num_multi = menu_num.addAction("I. -> 1. -> a) -> -  (Phân cấp đa cấp)")
+        act_num_multi.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "multilevel"}))
+
+        menu_num.addSeparator()
+
+        act_num_cont = menu_num.addAction("Tiếp tục đánh số từ danh sách trước")
+        act_num_cont.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "decimal", "suffix": ".", "restart": False}))
+
+        act_num_restart = menu_num.addAction("Bắt đầu lại từ 1 (Restart numbering)")
+        act_num_restart.triggered.connect(lambda: self.apply_list_format_triggered.emit({"style": "decimal", "suffix": ".", "restart": True}))
+
+        self.btn_num.setMenu(menu_num)
         row_align.addWidget(self.btn_num)
 
         para_box.addLayout(row_align)

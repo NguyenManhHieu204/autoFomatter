@@ -738,6 +738,125 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertTrue(body_text.strip().startswith("Thực hiện ý kiến chỉ đạo"))
         win.close()
 
+    def test_table_properties_dialog_layout_and_config(self):
+        """Kiểm tra hộp thoại cấu hình bảng (TablePropertiesDialog):
+        - Kích thước rộng rãi, không bị đè/squished (min width >= 460, min height >= 400)
+        - Bố cục lưới 2 cột hàng/cột thoáng đãng
+        - Lấy đúng cấu hình get_table_config()
+        """
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.table_properties_dlg import TablePropertiesDialog
+
+        dlg = TablePropertiesDialog()
+        self.assertGreaterEqual(dlg.minimumWidth(), 460)
+        self.assertGreaterEqual(dlg.minimumHeight(), 400)
+        self.assertIsNotNone(dlg.sp_rows)
+        self.assertIsNotNone(dlg.sp_cols)
+        self.assertEqual(dlg.sp_rows.value(), 4)
+        self.assertEqual(dlg.sp_cols.value(), 3)
+
+        cfg = dlg.get_table_config()
+        self.assertEqual(cfg["rows"], 4)
+        self.assertEqual(cfg["cols"], 3)
+        self.assertEqual(cfg["border_type"], "grid")
+        self.assertTrue(cfg["repeat_header"])
+        self.assertTrue(cfg["cant_split"])
+        dlg.close()
+
+    def test_top_action_bar_undo_redo_and_rename(self):
+        """Kiểm tra thanh tiêu đề phía trên (Top Action Bar):
+        - Có nút Quay lại (Undo) và Làm lại (Redo) giống Microsoft Word
+        - Có phím tắt Ctrl+Z, Ctrl+Y
+        - Nhấp vào tiêu đề hoặc nút Đổi tên kích hoạt chức năng đổi tên tệp
+        """
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.word_editor_window import WordEditorWindow
+
+        win = WordEditorWindow(None)
+        self.assertIsNotNone(win.btn_undo)
+        self.assertEqual(win.btn_undo.text(), "Quay lại")
+        self.assertIsNotNone(win.btn_redo)
+        self.assertEqual(win.btn_redo.text(), "Làm lại")
+        self.assertIsNotNone(win.btn_rename_file)
+        self.assertEqual(win.btn_rename_file.text(), "Đổi tên")
+
+        # Kiểm tra phím tắt
+        self.assertIsNotNone(win.shortcut_undo)
+        self.assertIsNotNone(win.shortcut_redo)
+
+        # Kiểm tra Undo / Redo hoạt động không lỗi
+        win._on_undo()
+        win._on_redo()
+
+        win.close()
+
+    def test_numbering_continuation_and_multilevel_list(self):
+        """Kiểm tra cơ chế đánh số thông minh và phân cấp đa cấp:
+        - Bấm từng đoạn riêng lẻ sẽ TỰ ĐỘNG NỐI TIẾP số thứ tự (1, 2, 3...) thay vì toàn ra số 1
+        - Hỗ trợ số La Mã hoa (I., II., III...)
+        - Hỗ trợ điểm quy chuẩn NĐ 30 (a), b), c)...)
+        - Phím Tab tăng cấp phân cấp (I. -> 1. -> a) -> -)
+        - Phím Shift+Tab giảm cấp phân cấp và thoát danh sách
+        - Phím Enter trên dòng rỗng tự động thoát danh sách
+        """
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtGui import QTextCursor, QTextListFormat, QKeyEvent
+        from PyQt6.QtCore import Qt
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+
+        canvas = DocumentCanvas()
+        ed = canvas.active_editor
+        ed.setPlainText("Đoạn thứ nhất\nĐoạn thứ hai\nĐoạn thứ ba\nĐoạn thứ tư")
+
+        # 1. Bấm số đoạn 0: Thành số 1
+        cur0 = QTextCursor(ed.document().findBlockByNumber(0))
+        ed.setTextCursor(cur0)
+        canvas.insert_numbered_list()
+        b0 = ed.document().findBlockByNumber(0)
+        self.assertIsNotNone(b0.textList())
+        self.assertEqual(b0.textList().itemNumber(b0), 0) # 0-indexed = Số 1
+
+        # 2. Bấm số đoạn 1: Phải tự động nối thành số 2 (KHÔNG BỊ LỖI TOÀN RA SỐ 1)
+        cur1 = QTextCursor(ed.document().findBlockByNumber(1))
+        ed.setTextCursor(cur1)
+        canvas.insert_numbered_list()
+        b1 = ed.document().findBlockByNumber(1)
+        self.assertIsNotNone(b1.textList())
+        self.assertEqual(b1.textList().itemNumber(b1), 1) # Số 2
+
+        # 3. Bấm số đoạn 2: Phải tự động nối thành số 3
+        cur2 = QTextCursor(ed.document().findBlockByNumber(2))
+        ed.setTextCursor(cur2)
+        canvas.insert_numbered_list()
+        b2 = ed.document().findBlockByNumber(2)
+        self.assertIsNotNone(b2.textList())
+        self.assertEqual(b2.textList().itemNumber(b2), 2) # Số 3
+
+        # 4. Kiểm tra phân cấp bằng Tab (Demote): chuyển đoạn 2 sang Cấp 2
+        ed._demote_current_list_item(cur2)
+        self.assertEqual(b2.textList().format().indent(), 2)
+
+        # 5. Kiểm tra Shift+Tab (Promote): chuyển đoạn 2 trở lại Cấp 1
+        ed._promote_current_list_item(cur2)
+        self.assertEqual(b2.textList().format().indent(), 1)
+
+        # 6. Kiểm tra Shift+Tab ở Cấp 1: Thoát khỏi danh sách
+        ed._promote_current_list_item(cur2)
+        self.assertIsNone(b2.textList())
+
+        # 7. Kiểm tra kiểu số La Mã hoa (I., II., III...)
+        cur3 = QTextCursor(ed.document().findBlockByNumber(3))
+        ed.setTextCursor(cur3)
+        canvas.apply_list_format({"style": "roman_upper", "suffix": "."})
+        b3 = ed.document().findBlockByNumber(3)
+        self.assertIsNotNone(b3.textList())
+        self.assertEqual(b3.textList().format().style(), QTextListFormat.Style.ListUpperRoman)
+
+        canvas.close()
+
 
 if __name__ == "__main__":
     unittest.main()

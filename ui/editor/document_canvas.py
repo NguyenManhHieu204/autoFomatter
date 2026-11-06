@@ -48,6 +48,84 @@ class AdministrativeTextEdit(QTextEdit):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.textChanged.connect(self._check_height_overflow)
 
+    def _get_format_for_level(self, level: int) -> QTextListFormat:
+        fmt = QTextListFormat()
+        fmt.setIndent(level)
+        if level == 1:
+            fmt.setStyle(QTextListFormat.Style.ListUpperRoman)
+            if hasattr(fmt, "setNumberSuffix"):
+                fmt.setNumberSuffix(".")
+        elif level == 2:
+            fmt.setStyle(QTextListFormat.Style.ListDecimal)
+            if hasattr(fmt, "setNumberSuffix"):
+                fmt.setNumberSuffix(".")
+        elif level == 3:
+            fmt.setStyle(QTextListFormat.Style.ListLowerAlpha)
+            if hasattr(fmt, "setNumberSuffix"):
+                fmt.setNumberSuffix(")")
+        else:
+            fmt.setStyle(QTextListFormat.Style.ListDisc)
+        return fmt
+
+    def _demote_current_list_item(self, cursor=None):
+        """Phím Tab trong danh sách: Tăng cấp thụt lề / Đổi cấp phân cấp như Microsoft Word"""
+        if cursor is None:
+            cursor = self.textCursor()
+        cur_block = cursor.block()
+        tl = cur_block.textList()
+        cur_indent = tl.format().indent() if tl else 1
+        new_indent = min(cur_indent + 1, 4)
+
+        # Tìm danh sách trước đó có cùng new_indent để nối số
+        target_list = None
+        b = cur_block.previous()
+        while b.isValid():
+            btl = b.textList()
+            if btl and btl.format().indent() == new_indent:
+                target_list = btl
+                break
+            elif btl and btl.format().indent() < new_indent:
+                break
+            b = b.previous()
+
+        if target_list:
+            target_list.add(cur_block)
+        else:
+            fmt = self._get_format_for_level(new_indent)
+            cursor.createList(fmt)
+
+    def _promote_current_list_item(self, cursor=None):
+        """Phím Shift+Tab trong danh sách: Giảm cấp phân cấp / Thoát danh sách nếu ở cấp 1"""
+        if cursor is None:
+            cursor = self.textCursor()
+        cur_block = cursor.block()
+        tl = cur_block.textList()
+        cur_indent = tl.format().indent() if tl else 1
+        if cur_indent <= 1:
+            # Thoát danh sách
+            if tl:
+                tl.remove(cur_block)
+            bf = cursor.blockFormat()
+            bf.setObjectIndex(-1)
+            bf.setIndent(0)
+            cursor.setBlockFormat(bf)
+        else:
+            new_indent = cur_indent - 1
+            target_list = None
+            b = cur_block.previous()
+            while b.isValid():
+                btl = b.textList()
+                if btl and btl.format().indent() == new_indent:
+                    target_list = btl
+                    break
+                b = b.previous()
+
+            if target_list:
+                target_list.add(cur_block)
+            else:
+                fmt = self._get_format_for_level(new_indent)
+                cursor.createList(fmt)
+
     def keyPressEvent(self, event):
         # 1. Ctrl + Enter / Ctrl + Return => Ngắt trang sang trang A4 tiếp theo chuẩn xác
         if (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -55,7 +133,36 @@ class AdministrativeTextEdit(QTextEdit):
             event.accept()
             return
 
-        # 2. Backspace ở đầu trang rỗng => Xóa trang và nhảy về trang trước
+        # 2. Phím Tab trong danh sách => Tăng cấp phân cấp (Word demote)
+        if event.key() == Qt.Key.Key_Tab and not (event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)):
+            cur = self.textCursor()
+            if cur.currentList():
+                self._demote_current_list_item(cur)
+                event.accept()
+                return
+
+        # 3. Phím Shift + Tab (hoặc Key_Backtab) trong danh sách => Giảm cấp phân cấp (Word promote)
+        if (event.key() == Qt.Key.Key_Backtab) or (event.key() == Qt.Key.Key_Tab and (event.modifiers() & Qt.KeyboardModifier.ShiftModifier)):
+            cur = self.textCursor()
+            if cur.currentList():
+                self._promote_current_list_item(cur)
+                event.accept()
+                return
+
+        # 4. Phím Enter trên một dòng danh sách trống => Thoát danh sách (như Microsoft Word)
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            cur = self.textCursor()
+            lst = cur.currentList()
+            if lst and len(cur.block().text().strip()) == 0:
+                lst.remove(cur.block())
+                bf = cur.blockFormat()
+                bf.setObjectIndex(-1)
+                bf.setIndent(0)
+                cur.setBlockFormat(bf)
+                event.accept()
+                return
+
+        # 5. Backspace ở đầu trang rỗng => Xóa trang và nhảy về trang trước
         if event.key() == Qt.Key.Key_Backspace:
             cur = self.textCursor()
             if cur.position() == 0 and not cur.hasSelection():
@@ -962,6 +1069,25 @@ class DocumentCanvas(QFrame):
         table = cursor.currentTable()
         menu = ed.createStandardContextMenu()
 
+        # Chuẩn hóa ngôn ngữ tiếng Việt chuyên nghiệp cho Menu ngữ cảnh (chuột phải)
+        trans_map = {
+            'Undo': 'Quay lại',
+            'Redo': 'Làm lại',
+            'Cut': 'Cắt',
+            'Copy': 'Sao chép',
+            'Paste': 'Dán',
+            'Delete': 'Xóa',
+            'Select All': 'Chọn tất cả',
+        }
+        for act in menu.actions():
+            raw = act.text()
+            if raw:
+                parts = raw.split('\t')
+                label = parts[0].replace('&', '')
+                shortcut = ('\t' + parts[1]) if len(parts) > 1 else ''
+                if label in trans_map:
+                    act.setText(trans_map[label] + shortcut)
+
         if table:
             menu.addSeparator()
             tbl_menu = menu.addMenu("Bảng biểu")
@@ -1104,12 +1230,22 @@ class DocumentCanvas(QFrame):
         self._modify_selected_blocks_format(lambda fmt: fmt.setTextIndent(px))
 
     def increase_indent(self, step_mm: float = 10.0):
-        """Tăng thụt lề toàn bộ đoạn (Increase Indent) giống Microsoft Word"""
+        """Tăng thụt lề toàn bộ đoạn (Increase Indent) hoặc thăng cấp phân cấp danh sách nếu đang ở trong List"""
+        ed = self.active_editor
+        if ed and ed.textCursor().currentList() and hasattr(ed, "_demote_current_list_item"):
+            ed._demote_current_list_item()
+            self.document_modified.emit()
+            return
         step_px = int(step_mm * 3.7795)
         self._modify_selected_blocks_format(lambda fmt: fmt.setLeftMargin(fmt.leftMargin() + step_px))
 
     def decrease_indent(self, step_mm: float = 10.0):
-        """Giảm thụt lề toàn bộ đoạn (Decrease Indent) giống Microsoft Word"""
+        """Giảm thụt lề toàn bộ đoạn (Decrease Indent) hoặc hạ cấp/thoát danh sách nếu đang ở trong List"""
+        ed = self.active_editor
+        if ed and ed.textCursor().currentList() and hasattr(ed, "_promote_current_list_item"):
+            ed._promote_current_list_item()
+            self.document_modified.emit()
+            return
         step_px = int(step_mm * 3.7795)
         self._modify_selected_blocks_format(lambda fmt: fmt.setLeftMargin(max(0.0, fmt.leftMargin() - step_px)))
 
@@ -1154,41 +1290,123 @@ class DocumentCanvas(QFrame):
             cursor = ed.textCursor()
             cursor.insertText(sym)
 
-    def insert_bullet_list(self):
-        """Tạo danh sách gạch đầu dòng tự động chuẩn Word (Ctrl/Enter tự sinh mục tiếp theo)"""
+    def apply_list_format(self, config: dict = None):
+        """Áp dụng định dạng danh sách số / ký hiệu / phân cấp đa cấp thông minh chuẩn Microsoft Word"""
         ed = self.active_editor
         if not ed:
             return
-        cursor = ed.textCursor()
-        current_list = cursor.currentList()
-        if current_list and current_list.format().style() == QTextListFormat.Style.ListDisc:
-            bf = cursor.blockFormat()
-            bf.setObjectIndex(-1)
-            cursor.setBlockFormat(bf)
+        if not config:
+            config = {"style": "decimal", "suffix": ".", "restart": False}
+
+        style_key = config.get("style", "decimal")
+        suffix = config.get("suffix", ".")
+        prefix = config.get("prefix", "")
+        restart = config.get("restart", False)
+        indent = config.get("indent", 1)
+
+        style_map = {
+            "decimal": QTextListFormat.Style.ListDecimal,
+            "roman_upper": QTextListFormat.Style.ListUpperRoman,
+            "roman_lower": QTextListFormat.Style.ListLowerRoman,
+            "alpha_lower": QTextListFormat.Style.ListLowerAlpha,
+            "alpha_upper": QTextListFormat.Style.ListUpperAlpha,
+            "disc": QTextListFormat.Style.ListDisc,
+            "circle": QTextListFormat.Style.ListCircle,
+            "square": QTextListFormat.Style.ListSquare,
+        }
+
+        if style_key == "multilevel":
+            qt_style = QTextListFormat.Style.ListUpperRoman
+            suffix = "."
+            prefix = ""
+            indent = 1
         else:
-            list_fmt = QTextListFormat()
-            list_fmt.setStyle(QTextListFormat.Style.ListDisc)
-            list_fmt.setIndent(1)
-            cursor.createList(list_fmt)
+            qt_style = style_map.get(style_key, QTextListFormat.Style.ListDecimal)
+
+        fmt = QTextListFormat()
+        fmt.setStyle(qt_style)
+        fmt.setIndent(indent)
+        if hasattr(fmt, "setNumberSuffix"):
+            fmt.setNumberSuffix(suffix)
+        if hasattr(fmt, "setNumberPrefix") and prefix:
+            fmt.setNumberPrefix(prefix)
+
+        cursor = ed.textCursor()
+
+        if not cursor.hasSelection():
+            cur_block = cursor.block()
+            tl = cur_block.textList()
+            # Nếu đoạn đã ở danh sách cùng kiểu và cùng hậu tố -> Bấm lần nữa là Hủy danh sách (Toggle OFF)
+            if tl and tl.format().style() == qt_style and getattr(tl.format(), "numberSuffix", lambda: "")() == suffix and not restart:
+                tl.remove(cur_block)
+                bf = cursor.blockFormat()
+                bf.setObjectIndex(-1)
+                bf.setIndent(0)
+                cursor.setBlockFormat(bf)
+                self.document_modified.emit()
+                return
+
+            # Tìm danh sách trước đó phù hợp để nối tiếp số thứ tự (tránh lỗi bấm từng đoạn toàn ra số 1)
+            target_list = None
+            if not restart:
+                b = cur_block.previous()
+                while b.isValid():
+                    btl = b.textList()
+                    if btl:
+                        if btl.format().style() == qt_style and btl.format().indent() == indent:
+                            target_list = btl
+                        break
+                    elif b.text().strip():
+                        # Gặp đoạn văn bản bình thường không rỗng -> Dừng nối
+                        break
+                    b = b.previous()
+
+            if target_list:
+                target_list.add(cur_block)
+            else:
+                cursor.createList(fmt)
+        else:
+            # Có vùng chọn nhiều đoạn văn bản
+            start_pos = cursor.selectionStart()
+            end_pos = cursor.selectionEnd()
+            doc = ed.document()
+            start_block = doc.findBlock(start_pos)
+            end_block = doc.findBlock(end_pos)
+
+            # Kiểm tra xem danh sách trước khối chọn có thể nối không
+            target_list = None
+            if not restart:
+                b = start_block.previous()
+                while b.isValid():
+                    btl = b.textList()
+                    if btl:
+                        if btl.format().style() == qt_style and btl.format().indent() == indent:
+                            target_list = btl
+                        break
+                    elif b.text().strip():
+                        break
+                    b = b.previous()
+
+            if target_list:
+                cur = start_block
+                while cur.isValid() and cur.position() <= end_block.position():
+                    target_list.add(cur)
+                    if cur == end_block:
+                        break
+                    cur = cur.next()
+            else:
+                cursor.createList(fmt)
+
+        ed.setTextCursor(cursor)
         self.document_modified.emit()
 
+    def insert_bullet_list(self):
+        """Tạo/bật tắt danh sách gạch đầu dòng tự động (- / •)"""
+        self.apply_list_format({"style": "disc", "restart": False})
+
     def insert_numbered_list(self):
-        """Tạo danh sách đánh số tự động chuẩn Word (1, 2, 3... - Tự tăng số khi gõ Enter)"""
-        ed = self.active_editor
-        if not ed:
-            return
-        cursor = ed.textCursor()
-        current_list = cursor.currentList()
-        if current_list and current_list.format().style() == QTextListFormat.Style.ListDecimal:
-            bf = cursor.blockFormat()
-            bf.setObjectIndex(-1)
-            cursor.setBlockFormat(bf)
-        else:
-            list_fmt = QTextListFormat()
-            list_fmt.setStyle(QTextListFormat.Style.ListDecimal)
-            list_fmt.setIndent(1)
-            cursor.createList(list_fmt)
-        self.document_modified.emit()
+        """Tạo/bật tắt danh sách đánh số tự động chuẩn Word (1, 2, 3... - Tự nối số tiếp theo)"""
+        self.apply_list_format({"style": "decimal", "suffix": ".", "restart": False})
 
     def insert_table(self, rows: int, cols: int, border_type: str = "grid"):
         ed = self.active_editor

@@ -7,7 +7,7 @@ ui/editor/table_properties_dlg.py: Hộp thoại Chèn và Cấu hình Bảng bi
 """
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QSpinBox,
     QPushButton, QGroupBox, QRadioButton, QButtonGroup, QCheckBox, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
@@ -17,28 +17,28 @@ class TablePropertiesDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Chèn Bảng biểu Hành chính")
-        self.resize(460, 380)
-        self.setMinimumSize(400, 340)
+        self.setMinimumSize(480, 420)
+        self.resize(500, 440)
         self.setStyleSheet("""
             QDialog {
-                background-color: #f1f5f9;
+                background-color: #f8fafc;
                 color: #0f172a;
             }
             QGroupBox {
                 background-color: #ffffff;
                 border: 1.5px solid #cbd5e1;
-                border-radius: 6px;
+                border-radius: 8px;
                 font-weight: 600;
                 font-size: 13px;
                 color: #0f172a;
-                margin-top: 12px;
-                padding: 14px 12px 10px 12px;
+                margin-top: 14px;
+                padding: 16px 14px 12px 14px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                left: 12px;
-                padding: 0 6px;
+                left: 14px;
+                padding: 0 8px;
                 background-color: #ffffff;
                 color: #1e293b;
             }
@@ -52,10 +52,10 @@ class TablePropertiesDialog(QDialog):
                 background-color: #ffffff;
                 color: #0f172a;
                 border: 1.5px solid #cbd5e1;
-                border-radius: 5px;
+                border-radius: 6px;
                 padding: 4px 10px;
                 font-size: 13px;
-                min-height: 28px;
+                min-height: 30px;
             }
             QSpinBox:focus {
                 border-color: #2563eb;
@@ -64,63 +64,66 @@ class TablePropertiesDialog(QDialog):
                 color: #0f172a;
                 font-size: 13px;
                 font-weight: 500;
-                spacing: 8px;
+                spacing: 10px;
                 background: transparent;
-                padding: 3px 0;
+                min-height: 28px;
+                padding: 2px 4px;
+            }
+            QRadioButton::indicator, QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
             }
             QPushButton {
                 background-color: #ffffff;
                 color: #0f172a;
                 font-weight: 500;
                 font-size: 13px;
-                padding: 7px 18px;
+                padding: 7px 20px;
+                min-height: 28px;
                 border: 1.5px solid #cbd5e1;
-                border-radius: 5px;
+                border-radius: 6px;
             }
             QPushButton:hover {
-                background-color: #f8fafc;
+                background-color: #f1f5f9;
                 border-color: #94a3b8;
             }
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 16, 20, 18)
+        layout.setSpacing(14)
 
-        # 1. Kích thước bảng
+        # 1. Kích thước bảng (bố cục 2 cột gọn gàng, rộng rãi)
         dim_group = QGroupBox("Kích thước bảng")
-        dim_layout = QVBoxLayout(dim_group)
-        dim_layout.setSpacing(8)
+        dim_grid = QGridLayout(dim_group)
+        dim_grid.setContentsMargins(12, 12, 12, 10)
+        dim_grid.setHorizontalSpacing(16)
+        dim_grid.setVerticalSpacing(10)
 
-        row_layout = QHBoxLayout()
         lbl_r = QLabel("Số hàng:")
-        lbl_r.setMinimumWidth(80)
-        row_layout.addWidget(lbl_r)
+        lbl_r.setMinimumWidth(65)
+        dim_grid.addWidget(lbl_r, 0, 0)
         self.sp_rows = QSpinBox()
         self.sp_rows.setRange(1, 100)
         self.sp_rows.setValue(4)
-        self.sp_rows.setMinimumWidth(80)
-        row_layout.addWidget(self.sp_rows)
-        row_layout.addStretch()
+        self.sp_rows.setMinimumWidth(85)
+        dim_grid.addWidget(self.sp_rows, 0, 1)
 
-        col_layout = QHBoxLayout()
         lbl_c = QLabel("Số cột:")
-        lbl_c.setMinimumWidth(80)
-        col_layout.addWidget(lbl_c)
+        lbl_c.setMinimumWidth(65)
+        dim_grid.addWidget(lbl_c, 0, 2)
         self.sp_cols = QSpinBox()
         self.sp_cols.setRange(1, 15)
         self.sp_cols.setValue(3)
-        self.sp_cols.setMinimumWidth(80)
-        col_layout.addWidget(self.sp_cols)
-        col_layout.addStretch()
+        self.sp_cols.setMinimumWidth(85)
+        dim_grid.addWidget(self.sp_cols, 0, 3)
 
-        dim_layout.addLayout(row_layout)
-        dim_layout.addLayout(col_layout)
         layout.addWidget(dim_group)
 
         # 2. Kiểu viền khung
         border_group = QGroupBox("Đường viền thể thức")
         border_layout = QVBoxLayout(border_group)
+        border_layout.setContentsMargins(12, 12, 12, 10)
         border_layout.setSpacing(8)
 
         self.rb_grid = QRadioButton("Viền khung lưới chuẩn văn thư (1/2 pt)")
@@ -138,6 +141,7 @@ class TablePropertiesDialog(QDialog):
         # 3. Tùy chọn bảo vệ nhiều trang
         protect_group = QGroupBox("Bảo vệ trang in")
         protect_layout = QVBoxLayout(protect_group)
+        protect_layout.setContentsMargins(12, 12, 12, 10)
         protect_layout.setSpacing(8)
 
         self.chk_header = QCheckBox("Lặp lại hàng tiêu đề trên từng trang (tblHeader)")
