@@ -223,7 +223,7 @@ class DropZoneWidget(QFrame):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Auto-Formatter 1.2 — Chuẩn Hóa Thể Thức & Soạn Thảo Văn Bản Tích Hợp (NĐ 30 & HD 36)")
+        self.setWindowTitle("Auto-Formatter — Chuẩn hóa Thể thức Văn bản")
         self.resize(1200, 800)
         self.setMinimumSize(980, 640)
         self.setStyleSheet(MAIN_STYLE)
@@ -332,7 +332,7 @@ class MainWindow(QMainWindow):
 
         # 3. Menu Công cụ
         menu_tools = menubar.addMenu("Công cụ")
-        act_sign = menu_tools.addAction("Ký số điện tử (Nghị định 30)...")
+        act_sign = menu_tools.addAction("Ký số...")
         act_sign.setShortcut("Ctrl+K")
         act_sign.triggered.connect(self._open_signature_dialog)
 
@@ -348,20 +348,21 @@ class MainWindow(QMainWindow):
         act_about.triggered.connect(self._show_about_dialog)
 
     def _show_about_dialog(self):
-        """Hiển thị hộp thoại giới thiệu phiên bản 1.2"""
+        """Hiển thị hộp thoại giới thiệu phiên bản 2.0 Thương Mại"""
         QMessageBox.about(
             self,
-            "Về Auto-Formatter v1.2",
-            "<h3>Auto-Formatter v1.2 — Soạn Thảo & Chuẩn Hóa Thể Thức Văn Bản</h3>"
-            "<p><b>Phân hệ Tạo nhanh & Soạn thảo Văn bản Tích hợp (Offline WYSIWYG):</b></p>"
+            "Về Auto-Formatter v2.0",
+            "<h3>Auto-Formatter v2.0 — Soạn Thảo & Chuẩn Hóa Thể Thức Văn Bản (Bản Thương Mại)</h3>"
+            "<p><b>Giải pháp chuẩn hóa thể thức và ký số văn bản điện tử chuyên nghiệp:</b></p>"
             "<ul>"
-            "<li><b>Khóa cứng Thể thức (Layout Guard):</b> Tự động bảo vệ Quốc hiệu, Tiêu ngữ, Tên cơ quan, Khối ký tên theo NĐ 30/2020 và HĐ 36-HD/VPTW.</li>"
-            "<li><b>Thước căn lề milimét (A4 Ruler):</b> Lề chuẩn Trái 30mm, Phải 15mm, Trên 20mm, Dưới 20mm, Thụt dòng 1.27cm.</li>"
-            "<li><b>Administrative Ribbon Bar:</b> 4 tab nghiệp vụ Home, Insert, Page Layout, Admin Tools.</li>"
+            "<li><b>Khóa cứng Thể thức (Layout Guard):</b> Tự động bảo vệ Quốc hiệu, Tiêu ngữ, Tên cơ quan, Khối ký tên theo NĐ 30/2020 và HD 36-HD/VPTW.</li>"
+            "<li><b>Thước căn lề milimét & Khung vẽ A4 rời rạc:</b> Lề chuẩn Trái 30mm, Phải 15mm, Trên 20mm, Dưới 20mm, Thụt dòng 1.27cm, hỗ trợ độc lập xoay ngang từ trang 2+.</li>"
+            "<li><b>Dải băng điều khiển Ribbon Bar:</b> Thiết kế Typography thanh lịch, chuẩn mực công vụ văn phòng.</li>"
             "<li><b>Bảng biểu hành chính:</b> Lặp tiêu đề (tblHeader) và chống gãy trang ngang dòng (cantSplit).</li>"
-            "<li><b>Ký số điện tử:</b> Tuân thủ quy chuẩn Thông tư 41/2017/TT-BTTTT và Ban Cơ yếu Chính phủ.</li>"
+            "<li><b>Ký số điện tử PAdES CAPI:</b> Tương thích 100% USB Token Ban Cơ yếu Chính phủ và các CA công cộng theo Điều 13 NĐ 30.</li>"
+            "<li><b>Rà soát thể thức thời gian thực:</b> Chấm điểm 0 - 100 điểm kèm nút bấm sửa nhanh 1 chạm.</li>"
             "</ul>"
-            "<p><i>Bản quyền © 2026 Auto-Formatter Team. Hoạt động ngoại tuyến 100% bảo mật.</i></p>"
+            "<p><i>Bản quyền © 2026 Auto-Formatter Team. Hoạt động ngoại tuyến 100% (Air-gapped) bảo mật dữ liệu tuyệt đối.</i></p>"
         )
 
     def _init_ui(self):
@@ -387,79 +388,68 @@ class MainWindow(QMainWindow):
         self.drop_zone.files_dropped.connect(self._add_files)
         left_layout.addWidget(self.drop_zone)
 
-        # Thanh công cụ quản lý tệp & Soạn thảo văn bản mới (2 hàng cân đối, trực quan)
-        file_toolbar = QVBoxLayout()
+        # Thanh công cụ quản lý tệp tinh gọn (1 hàng chuyên nghiệp, không lặp lại)
+        file_toolbar = QHBoxLayout()
         file_toolbar.setSpacing(6)
 
-        row_tools_1 = QHBoxLayout()
-        row_tools_1.setSpacing(6)
-
-        self.btn_add_files = QPushButton("Thêm tệp dự thảo...")
+        self.btn_add_files = QPushButton("Thêm tệp...")
         self.btn_add_files.setStyleSheet("""
             QPushButton {
                 background-color: #2563eb; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 7px 12px; border-radius: 5px; border: 1px solid #1d4ed8;
+                font-size: 12px; padding: 6px 14px; border-radius: 5px; border: 1px solid #1d4ed8;
             }
             QPushButton:hover { background-color: #1d4ed8; }
             QPushButton:pressed { background-color: #1e40af; }
         """)
+        self.btn_add_files.setToolTip("Chọn một hoặc nhiều tệp Word (.docx) hoặc PDF để chuẩn hóa")
         self.btn_add_files.clicked.connect(self._choose_files_dialog)
 
         self.btn_add_folder = QPushButton("Thêm thư mục...")
         self.btn_add_folder.setStyleSheet("""
             QPushButton {
-                background-color: #0284c7; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 7px 12px; border-radius: 5px; border: 1px solid #0369a1;
+                background-color: #ffffff; color: #334155; font-weight: 500;
+                font-size: 12px; padding: 6px 12px; border-radius: 5px; border: 1px solid #cbd5e1;
             }
-            QPushButton:hover { background-color: #0369a1; }
-            QPushButton:pressed { background-color: #075985; }
+            QPushButton:hover { background-color: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+            QPushButton:pressed { background-color: #f1f5f9; }
         """)
+        self.btn_add_folder.setToolTip("Quét và nạp toàn bộ tệp tài liệu trong một thư mục")
         self.btn_add_folder.clicked.connect(self._choose_folder_dialog)
 
-        self.btn_quick_create = QPushButton("Soạn thảo mới")
-        self.btn_quick_create.setStyleSheet("""
-            QPushButton {
-                background-color: #059669; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 7px 12px; border-radius: 5px; border: 1px solid #047857;
-            }
-            QPushButton:hover { background-color: #047857; }
-            QPushButton:pressed { background-color: #065f46; }
-        """)
-        self.btn_quick_create.setToolTip("Khởi tạo văn bản mẫu chuẩn thể thức NĐ 30 & HD 36 (Template Wizard)")
-        self.btn_quick_create.clicked.connect(self._open_quick_wizard)
+        file_toolbar.addWidget(self.btn_add_files)
+        file_toolbar.addWidget(self.btn_add_folder)
+        file_toolbar.addStretch(1)
 
-        row_tools_1.addWidget(self.btn_add_files, 1)
-        row_tools_1.addWidget(self.btn_add_folder, 1)
-        row_tools_1.addWidget(self.btn_quick_create, 1)
-
-        row_tools_2 = QHBoxLayout()
-        row_tools_2.setSpacing(6)
-
-        self.btn_remove_file = QPushButton("Xóa tệp chọn")
+        self.btn_remove_file = QPushButton("Xóa")
         self.btn_remove_file.setStyleSheet("""
             QPushButton {
-                background-color: #ffffff; color: #dc2626; font-weight: 600;
-                font-size: 12px; padding: 5px 12px; border-radius: 5px; border: 1px solid #fca5a5;
+                background-color: #ffffff; color: #64748b; font-weight: 500;
+                font-size: 12px; padding: 6px 12px; border-radius: 5px; border: 1px solid #e2e8f0;
             }
-            QPushButton:hover { background-color: #fee2e2; border-color: #f87171; }
+            QPushButton:hover { background-color: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+            QPushButton:pressed { background-color: #fee2e2; }
         """)
+        self.btn_remove_file.setToolTip("Xóa tệp đang chọn khỏi danh sách")
         self.btn_remove_file.clicked.connect(self._remove_selected_file)
 
-        self.btn_clear_all = QPushButton("Làm mới danh sách")
+        self.btn_clear_all = QPushButton("Làm mới")
         self.btn_clear_all.setStyleSheet("""
             QPushButton {
-                background-color: #ffffff; color: #475569; font-weight: 600;
-                font-size: 12px; padding: 5px 12px; border-radius: 5px; border: 1px solid #cbd5e1;
+                background-color: #ffffff; color: #64748b; font-weight: 500;
+                font-size: 12px; padding: 6px 12px; border-radius: 5px; border: 1px solid #e2e8f0;
             }
-            QPushButton:hover { background-color: #f1f5f9; color: #1e293b; }
+            QPushButton:hover { background-color: #f1f5f9; border-color: #cbd5e1; color: #1e293b; }
+            QPushButton:pressed { background-color: #e2e8f0; }
         """)
+        self.btn_clear_all.setToolTip("Xóa toàn bộ tệp trong danh sách để làm mới")
         self.btn_clear_all.clicked.connect(self._clear_all_files)
 
-        row_tools_2.addWidget(self.btn_remove_file, 1)
-        row_tools_2.addWidget(self.btn_clear_all, 1)
+        file_toolbar.addWidget(self.btn_remove_file)
+        file_toolbar.addWidget(self.btn_clear_all)
 
-        file_toolbar.addLayout(row_tools_1)
-        file_toolbar.addLayout(row_tools_2)
+        # Giữ tham chiếu btn_quick_create để tránh lỗi nếu có module gọi
+        self.btn_quick_create = None
+
         left_layout.addLayout(file_toolbar)
 
         # Bảng danh sách file
@@ -662,90 +652,103 @@ class MainWindow(QMainWindow):
 
         right_layout.addWidget(self.report_group, 1)
 
-        # Thanh nút thao tác trên file đã hoàn thành (Trực quan, tương phản cao, không dùng icon)
+        # Thanh nút thao tác trên văn bản (Thiết kế hài hòa, màu sắc văn phòng tinh tế, phân cấp rõ ràng)
         actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(8)
+        actions_layout.setSpacing(6)
 
-        self.btn_run_ocr = QPushButton("Nhận dạng & Chuẩn hóa")
-        self.btn_run_ocr.setStyleSheet("""
-            QPushButton {
-                background-color: #d97706; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #b45309;
-            }
-            QPushButton:hover { background-color: #b45309; }
-            QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border: 1px solid #cbd5e1; }
-        """)
-        self.btn_run_ocr.setEnabled(False)
-        self.btn_run_ocr.clicked.connect(self._run_ocr_on_selected_file)
-
+        # 1. Nút Soạn thảo tích hợp (Hành động chính - Royal Blue)
         self.btn_embedded_edit = QPushButton("Soạn thảo tích hợp")
         self.btn_embedded_edit.setStyleSheet("""
             QPushButton {
-                background-color: #059669; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #047857;
-            }
-            QPushButton:hover { background-color: #047857; }
-            QPushButton:pressed { background-color: #065f46; }
-        """)
-        self.btn_embedded_edit.setEnabled(True)
-        self.btn_embedded_edit.setToolTip("Mở tài liệu trong Trình Soạn thảo Hành chính WYSIWYG tích hợp (Hoặc tạo mới)")
-        self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
-
-        self.btn_open_word = QPushButton("Mở file Word")
-        self.btn_open_word.setStyleSheet("""
-            QPushButton {
                 background-color: #2563eb; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #1d4ed8;
+                font-size: 12px; padding: 7px 14px; border-radius: 5px; border: 1px solid #1d4ed8;
             }
             QPushButton:hover { background-color: #1d4ed8; }
-            QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border: 1px solid #cbd5e1; }
+            QPushButton:pressed { background-color: #1e40af; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
         """)
-        self.btn_open_word.setEnabled(False)
-        self.btn_open_word.clicked.connect(self._open_output_word)
+        self.btn_embedded_edit.setEnabled(True)
+        self.btn_embedded_edit.setToolTip("Mở văn bản trong Trình Soạn thảo Hành chính tích hợp (hoặc tạo mới)")
+        self.btn_embedded_edit.clicked.connect(self._open_in_embedded_editor)
 
-        self.btn_open_pdf = QPushButton("Mở file PDF")
-        self.btn_open_pdf.setStyleSheet("""
-            QPushButton {
-                background-color: #dc2626; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #b91c1c;
-            }
-            QPushButton:hover { background-color: #b91c1c; }
-            QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border: 1px solid #cbd5e1; }
-        """)
-        self.btn_open_pdf.setEnabled(False)
-        self.btn_open_pdf.clicked.connect(self._open_output_pdf)
-
-        self.btn_sign_pdf = QPushButton("Ký số (NĐ 30)")
+        # 2. Nút Ký số (Hành động ký số - Elegant Indigo)
+        self.btn_sign_pdf = QPushButton("Ký số")
         self.btn_sign_pdf.setStyleSheet("""
             QPushButton {
-                background-color: #7c3aed; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #6d28d9;
+                background-color: #4f46e5; color: #ffffff; font-weight: 600;
+                font-size: 12px; padding: 7px 14px; border-radius: 5px; border: 1px solid #4338ca;
             }
-            QPushButton:hover { background-color: #6d28d9; }
-            QPushButton:pressed { background-color: #5b21b6; }
+            QPushButton:hover { background-color: #4338ca; }
+            QPushButton:pressed { background-color: #3730a3; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
         """)
         self.btn_sign_pdf.setToolTip("Ký số điện tử bằng USB Token Ban Cơ yếu hoặc VGCA SignTool theo Nghị định 30/2020/NĐ-CP")
         self.btn_sign_pdf.setEnabled(True)
         self.btn_sign_pdf.clicked.connect(self._open_signature_dialog)
 
+        # 3. Nút Mở file Word (Thứ cấp - Nền trắng trang nhã, viền mềm mại)
+        self.btn_open_word = QPushButton("Mở file Word")
+        self.btn_open_word.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff; color: #1e293b; font-weight: 500;
+                font-size: 12px; padding: 7px 11px; border-radius: 5px; border: 1px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+            QPushButton:pressed { background-color: #dbeafe; }
+            QPushButton:disabled { background-color: #f8fafc; color: #cbd5e1; border-color: #e2e8f0; }
+        """)
+        self.btn_open_word.setEnabled(False)
+        self.btn_open_word.clicked.connect(self._open_output_word)
+
+        # 4. Nút Mở file PDF (Thứ cấp - Nền trắng trang nhã)
+        self.btn_open_pdf = QPushButton("Mở file PDF")
+        self.btn_open_pdf.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff; color: #1e293b; font-weight: 500;
+                font-size: 12px; padding: 7px 11px; border-radius: 5px; border: 1px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+            QPushButton:pressed { background-color: #fee2e2; }
+            QPushButton:disabled { background-color: #f8fafc; color: #cbd5e1; border-color: #e2e8f0; }
+        """)
+        self.btn_open_pdf.setEnabled(False)
+        self.btn_open_pdf.clicked.connect(self._open_output_pdf)
+
+        # 5. Nút Mở thư mục chứa (Thứ cấp)
         self.btn_open_dir = QPushButton("Mở thư mục")
         self.btn_open_dir.setStyleSheet("""
             QPushButton {
-                background-color: #334155; color: #ffffff; font-weight: 600;
-                font-size: 12px; padding: 8px 12px; border-radius: 5px; border: 1px solid #1e293b;
+                background-color: #ffffff; color: #475569; font-weight: 500;
+                font-size: 12px; padding: 7px 11px; border-radius: 5px; border: 1px solid #cbd5e1;
             }
-            QPushButton:hover { background-color: #1e293b; }
-            QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border: 1px solid #cbd5e1; }
+            QPushButton:hover { background-color: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+            QPushButton:pressed { background-color: #f1f5f9; }
+            QPushButton:disabled { background-color: #f8fafc; color: #cbd5e1; border-color: #e2e8f0; }
         """)
         self.btn_open_dir.setEnabled(False)
         self.btn_open_dir.clicked.connect(self._open_output_folder)
 
-        actions_layout.addWidget(self.btn_run_ocr)
+        # 6. Nút Nhận dạng OCR bổ trợ (Viền hổ phách nhẹ)
+        self.btn_run_ocr = QPushButton("Nhận dạng OCR")
+        self.btn_run_ocr.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff; color: #b45309; font-weight: 500;
+                font-size: 12px; padding: 7px 11px; border-radius: 5px; border: 1px solid #fcd34d;
+            }
+            QPushButton:hover { background-color: #fffbeb; border-color: #f59e0b; color: #92400e; }
+            QPushButton:pressed { background-color: #fef3c7; }
+            QPushButton:disabled { background-color: #f8fafc; color: #cbd5e1; border-color: #e2e8f0; }
+        """)
+        self.btn_run_ocr.setEnabled(False)
+        self.btn_run_ocr.clicked.connect(self._run_ocr_on_selected_file)
+
+        # Bố trí thứ tự logic: Tác vụ chính -> Xem xuất bản -> Tiện ích bổ trợ
         actions_layout.addWidget(self.btn_embedded_edit)
+        actions_layout.addWidget(self.btn_sign_pdf)
         actions_layout.addWidget(self.btn_open_word)
         actions_layout.addWidget(self.btn_open_pdf)
-        actions_layout.addWidget(self.btn_sign_pdf)
         actions_layout.addWidget(self.btn_open_dir)
+        actions_layout.addWidget(self.btn_run_ocr)
         right_layout.addLayout(actions_layout)
 
         # Thêm 2 cột vào Splitter
@@ -1201,14 +1204,14 @@ class MainWindow(QMainWindow):
             wiz = QuickWizardDialog(self)
             if wiz.exec() and getattr(wiz, 'result_metadata', None):
                 self._active_editor = WordEditorWindow(None, initial_metadata=wiz.result_metadata)
-                self._active_editor.show()
+                self._active_editor.showMaximized()
                 self._active_editor.raise_()
                 self._active_editor.activateWindow()
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Không thể mở trình soạn thảo: {str(e)}")
 
     def _open_in_embedded_editor(self):
-        """Mở văn bản hiện tại trong Trình Soạn thảo Hành chính WYSIWYG tích hợp"""
+        """Mở văn bản hiện tại trong Trình Soạn thảo Hành chính WYSIWYG tích hợp (Mặc định toàn màn hình)"""
         try:
             row = self.table_files.currentRow()
             if row < 0 and self.files_queue:
@@ -1218,7 +1221,7 @@ class MainWindow(QMainWindow):
             if target and os.path.exists(target):
                 std = self._get_selected_standard()
                 self._active_editor = WordEditorWindow(None, initial_metadata={"standard_id": std}, current_file_path=target)
-                self._active_editor.show()
+                self._active_editor.showMaximized()
                 self._active_editor.raise_()
                 self._active_editor.activateWindow()
             else:

@@ -23,7 +23,7 @@ def run_cli(args):
     from core.win32_helper import Win32WordHelper
 
     print("=" * 65)
-    print("  AUTO-FORMATTER 1.0 - CHUẨN HÓA THỂ THỨC VĂN BẢN ĐẢNG & NHÀ NƯỚC")
+    print("  AUTO-FORMATTER 2.0 - CHUẨN HÓA THỂ THỨC VĂN BẢN ĐẢNG & NHÀ NƯỚC")
     print("=" * 65)
 
     input_path = args.file
@@ -120,18 +120,40 @@ def run_gui():
     if sys.platform.startswith('win'):
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DangHanhChinh.AutoFormatter.1.0")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DangHanhChinh.AutoFormatter.2.0")
         except Exception:
             pass
 
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QMessageBox
     from PyQt6.QtGui import QIcon
     from ui.main_window import MainWindow
     from core.path_utils import get_app_icon_path
 
+    # Bắt ngoại lệ toàn cục tránh Qt6 abort / qFatal đột ngột
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        import traceback
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        err_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        try:
+            print(f"[ERROR] Ngoại lệ chưa bắt:\n{err_msg}", file=sys.stderr)
+        except Exception:
+            pass
+        try:
+            QMessageBox.critical(
+                None,
+                "Lỗi ứng dụng",
+                f"Đã phát sinh sự cố:\n{str(exc_value)}\n\nỨng dụng vẫn đang tiếp tục hoạt động."
+            )
+        except Exception:
+            pass
+
+    sys.excepthook = handle_exception
+
     app = QApplication(sys.argv)
     app.setApplicationName("Auto-Formatter")
-    app.setApplicationDisplayName("Auto-Formatter - Chuẩn hóa Thể thức Văn bản")
+    app.setApplicationDisplayName("")
 
     # Thiết lập icon ứng dụng cho khay hệ thống và thanh tác vụ
     icon_path = get_app_icon_path()

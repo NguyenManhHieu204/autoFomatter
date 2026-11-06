@@ -1,6 +1,6 @@
 # TÀI LIỆU ĐẶC TẢ KỸ THUẬT HỆ THỐNG
 ## CÔNG CỤ TỰ ĐỘNG CHUẨN HÓA THỂ THỨC VĂN BẢN ĐẢNG & HÀNH CHÍNH
-### (Auto-Formatter Version 1.0 — Chạy Ngoại Tuyến 100% • Tích Hợp OCR & Ký Số Điện Tử)
+### (Auto-Formatter Version 2.0 — Bản Thương Mại • Chạy Ngoại Tuyến 100% • Tích Hợp Soạn Thảo WYSIWYG, OCR & Ký Số Điện Tử)
 
 ---
 
@@ -13,8 +13,9 @@ Trong hoạt động của các cơ quan Đảng, tổ chức chính trị - xã
 * Tồn tại nhiều lỗi kỹ thuật soạn thảo: khoảng trắng kép, thiếu khoảng trắng sau dấu câu, khoảng trắng trước dấu câu, viết hoa tùy tiện danh từ chung hoặc quên viết hoa tên riêng cơ quan, tổ chức.
 * Khó khăn trong việc xử lý các tài liệu cũ dạng ảnh chụp hoặc PDF scan cần số hóa lại.
 * Nhu cầu cấp thiết về ký số văn bản điện tử theo đúng thể thức Nghị định 30/2020/NĐ-CP và tương thích với USB Token chuyên dùng của Ban Cơ yếu Chính phủ.
+* Nhu cầu trực tiếp soạn thảo văn bản mới chuẩn A4 ngay trong ứng dụng mà không cần cài đặt các bộ phần mềm cồng kềnh.
 
-**Auto-Formatter 1.0** được phát triển nhằm mục tiêu giải quyết triệt để các vấn đề trên, cung cấp giải pháp trọn gói từ khâu tiếp nhận dự thảo, chuẩn hóa tự động, rà soát lỗi kỹ thuật đến khâu ký số điện tử và phát hành.
+**Auto-Formatter 1.2** được phát triển nhằm mục tiêu giải quyết triệt để các vấn đề trên, cung cấp giải pháp trọn gói từ khâu tiếp nhận dự thảo, soạn thảo trực quan A4, chuẩn hóa tự động, rà soát lỗi kỹ thuật đến khâu ký số điện tử và phát hành.
 
 ### 2. Các Quy chuẩn Pháp lý Tuân thủ
 Hệ thống tuân thủ nghiêm ngặt 2 bộ quy chuẩn nền tảng của hệ thống chính trị Việt Nam:
@@ -27,13 +28,17 @@ Hệ thống tuân thủ nghiêm ngặt 2 bộ quy chuẩn nền tảng của h�
 
 ```mermaid
 flowchart TD
-    In["Tệp đầu vào (.docx, .pdf scan, .png, .jpg)"] --> Detect{"Phát hiện loại tệp"}
+    In["Tệp đầu vào (.docx, .pdf scan, .png, .jpg) hoặc Tạo mới"] --> Detect{"Phát hiện loại tác vụ"}
     Detect -->|"Tệp Scan / Ảnh"| OCRModule["Module 1: OCR Ngoại tuyến (RapidOCR ONNX)"]
     Detect -->|"Tệp Văn bản .docx"| ParseModule["Module 2: Phân tích Cấu trúc AST (DocParser)"]
+    Detect -->|"Soạn thảo mới / Mở Editor"| EditorModule["Module 7: Trình Soạn thảo Hành chính WYSIWYG (A4 Discrete Canvas)"]
     OCRModule --> ParseModule
     ParseModule --> RuleEngine["Module 3: Chuẩn hóa Thể thức (NĐ 30 & HD 36)"]
     RuleEngine --> LintModule["Module 4: Rà soát Chính tả & Kỹ thuật Soạn thảo"]
+    EditorModule --> AuditModule["Module 7.1: Rà soát Tuân thủ & Sửa nhanh (Compliance Guard)"]
+    AuditModule --> EditorModule
     LintModule --> WordCom["Module 5: Hoàn thiện Word & Xuất PDF (COM Automation)"]
+    EditorModule --> WordCom
     WordCom --> SignModule["Module 6: Ký số Điện tử Trực quan (Ban Cơ yếu / NĐ 30)"]
     SignModule --> Out["Tài liệu phát hành (.docx & .pdf đã ký số tích xanh)"]
 ```
@@ -101,6 +106,23 @@ flowchart TD
   * Tự động quét cấu trúc trang để nhận diện các dòng thẩm quyền: `T/M BAN THƯỜNG VỤ`, `BÍ THƯ`, `CHỦ TỊCH`, `GIÁM ĐỐC`, `THỦ TRƯỞNG`... và khối `Nơi nhận:`.
   * **Phân biệt thông minh**: Bỏ qua các trang phụ lục, bảng biểu danh sách đính kèm (`DANH SÁCH...`, `PHỤ LỤC...`) để nhảy chính xác về trang kết thúc văn bản chính và đặt khung ký ngay giữa chức danh và họ tên.
 
+### Module 7: Trình Soạn thảo Hành chính WYSIWYG & Giám sát Pháp lý Thời gian thực
+* **Mục tiêu**: Cung cấp môi trường soạn thảo văn bản hành chính độc lập trực tiếp trên máy tính mà không cần cài đặt các bộ phần mềm Office cồng kềnh.
+* **Tính năng chi tiết**:
+  * **Khung vẽ A4 rời rạc (Discrete Multi-page Canvas)**:
+    * Kết xuất các tờ giấy A4 độc lập kích thước 210 x 297 mm với bóng đổ thực tế, lề in pháp lý hiển thị trực quan.
+    * Phím tắt `Ctrl + Enter` ngắt sang trang A4 tiếp theo chuẩn xác; `Backspace` tại đầu trang rỗng tự động thu hồi trang.
+  * **Độc lập định hướng khổ giấy (Independent Page Orientation)**:
+    * Trang 1 luôn giữ cố định khổ dọc (Portrait) theo quy định thể thức.
+    * Từ trang 2 trở đi, cán bộ có thể tùy chọn độc lập xoay sang khổ ngang (Landscape 297 x 210 mm) cho phụ lục, danh sách hoặc bảng biểu nhiều cột mà không làm ảnh hưởng đến khổ dọc của trang 1.
+  * **Hộp thoại Rà soát Tuân thủ & Sửa nhanh 1 chạm (Compliance Audit Dialog)**:
+    * Chấm điểm độ chuẩn xác thể thức từ 0 đến 100 điểm theo thời gian thực.
+    * Rà soát 6 tiêu chí pháp lý: Lề in A4, Phông chữ Times New Roman, Quốc hiệu & Tiêu ngữ, Tiền tố thẩm quyền (`TM.`/`T/M`), Dấu câu căn cứ pháp lý (`;` và `,`), Ký tự giữ chỗ (`...`).
+    * Nút **[Sửa nhanh 1 chạm]**: Tự động sửa ngay toàn bộ lỗi lề, phông và dấu câu để đưa văn bản đạt 100 / 100 điểm.
+  * **Đồng bộ Siêu dữ liệu 2 chiều (Metadata Editor Dialog)**:
+    * Quản lý tập trung Quốc hiệu, Tiêu ngữ, Tên cơ quan, Số ký hiệu, Trích yếu, Thẩm quyền ký và Nơi nhận.
+    * Tự động đồng bộ với cấu trúc bảo vệ OpenXML (`Content Control Lock`).
+
 ---
 
 ## III. THIẾT KẾ KIẾN TRÚC VÀ CẤU TRÚC MÃ NGUỒN
@@ -113,34 +135,53 @@ d:\AutoFormatter\
 │   ├── app_icon.ico                 # Icon ứng dụng định dạng Windows
 │   └── icons\                       # 23 bộ biểu tượng SVG và PNG đa độ phân giải
 ├── config\                          # Tầng cấu hình và Từ điển nghiệp vụ
-│   ├── administrative_dictionary.json # Từ điển từ ngữ, tên cơ quan, quy tắc viết hoa
+│   ├── nd30_rules.json              # Quy chuẩn Nghị định 30/2020/NĐ-CP
+│   ├── hd36_rules.json              # Quy chuẩn Hướng dẫn 36-HD/VPTW
 │   ├── agency_profiles.json         # Danh mục hồ sơ cơ quan ban hành tùy biến
-│   └── standards\                   # Tệp cấu hình thể thức YAML
-│       ├── nd30_2020.yaml           # Quy chuẩn Nghị định 30/2020/NĐ-CP
-│       └── hd36_vptw.yaml           # Quy chuẩn Hướng dẫn 36-HD/VPTW
+│   ├── capitalization_dict.txt      # Từ điển danh từ/tổ chức hành chính
+│   └── capitalization_rules.json    # Quy tắc viết hoa tên cơ quan & chức danh
 ├── core\                            # Tầng Logic nghiệp vụ cốt lõi (Core Engine)
 │   ├── administrative_sanitizer.py  # Chuẩn hóa văn bản hành chính & nội dung
 │   ├── com_helper.py                # Wrapper Microsoft Word COM Automation
 │   ├── doc_parser.py                # Phân tích cú pháp AST và nhận diện cấu trúc
 │   ├── formatter_engine.py          # Bộ máy thực thi chuẩn hóa tài liệu chính
 │   ├── header_footer_builder.py     # Xây dựng Tiêu đề trên / Tiêu đề dưới / Số trang
+│   ├── legal_constraint_guard.py    # Bộ kiểm soát & đánh giá chuẩn hóa thể thức
 │   ├── ocr_engine.py                # Bộ máy OCR bóc tách ảnh/PDF ngoại tuyến (RapidOCR)
 │   ├── path_utils.py                # Tiện ích quản lý đường dẫn thư mục
+│   ├── security_guard.py            # Tiêu hủy an toàn tệp tạm & bảo mật dữ liệu
 │   ├── signature_engine.py          # Bộ máy Ký số Điện tử Ban Cơ yếu & NĐ 30
 │   ├── spell_linter.py              # Bộ rà soát lỗi chính tả & dấu câu & viết hoa
-│   └── win32_helper.py              # Xử lý nền đa luồng với Windows API
+│   ├── template_wizard.py           # Bộ điều phối khuôn mẫu văn bản
+│   ├── vietnamese_spell_checker.py  # Kiểm tra lỗi chính tả tiếng Việt
+│   ├── win32_helper.py              # Xử lý nền đa luồng với Windows API
+│   └── editor_core\                 # Động cơ OpenXML và Quản lý Bố cục bảng
+│       ├── openxml_builder.py       # Bộ sinh mã OpenXML với Content Control Lock
+│       ├── table_layout_manager.py  # Quản trị độ rộng cột & bảo vệ bảng qua trang
+│       ├── native_canvas_engine.py  # Động cơ kết xuất khung vẽ bản địa
+│       └── com_word_host.py         # Cầu nối nhúng Word Host
 ├── ui\                              # Tầng Giao diện người dùng (PyQt6 UI)
 │   ├── icon_factory.py              # Nhà máy cung cấp và đệm biểu tượng High-DPI
 │   ├── main_window.py               # Cửa sổ ứng dụng chính (Dashboard điều khiển)
 │   ├── profile_dialog.py            # Hộp thoại quản lý danh mục cơ quan ban hành
+│   ├── quick_wizard_dialog.py       # Hộp thoại tạo nhanh văn bản mẫu
 │   ├── signature_dialog.py          # Hộp thoại ký số tương tác trực quan trên PDF
-│   └── styles.py                    # Bảng định dạng QSS hiện đại chuẩn công vụ
+│   ├── styles.py                    # Bảng định dạng QSS hiện đại chuẩn công vụ
+│   └── editor\                      # Phân hệ Trình Soạn thảo Hành chính WYSIWYG
+│       ├── word_editor_window.py    # Cửa sổ soạn thảo văn bản tích hợp toàn diện
+│       ├── document_canvas.py       # Khung vẽ A4 rời rạc, hỗ trợ độc lập xoay ngang
+│       ├── administrative_ribbon.py # Dải băng điều khiển Ribbon Bar chuẩn công vụ
+│       ├── compliance_audit_dlg.py  # Hộp thoại rà soát thể thức & nút bấm sửa nhanh 1 chạm
+│       ├── metadata_editor_dlg.py   # Hộp thoại chỉnh sửa siêu dữ liệu văn bản 2 chiều
+│       ├── document_ruler.py        # Thước căn lề milimét tương tác
+│       └── table_properties_dlg.py  # Hộp thoại thuộc tính bảng biểu
 ├── build_exe.spec                   # Cấu hình biên dịch đóng gói PyInstaller tối ưu
+├── installer.iss                    # Script Inno Setup tạo bộ cài đặt Windows Setup
 ├── main.py                          # Điểm khởi nhập (Entry Point) của ứng dụng
 └── dist\                            # Sản phẩm xuất xưởng sẵn sàng phân phối
     ├── AutoFormatter\               # Bản Onedir mở tức thì (< 1 giây)
     │   └── AutoFormatter.exe
-    └── AutoFormatter_v1.0.zip       # Gói nén di động (Portable 137 MB)
+    └── AutoFormatter_v1.0.zip       # Gói nén di động (Portable)
 ```
 
 ### 2. Các Lớp Đối tượng (Class Diagram) Tiêu biểu

@@ -111,11 +111,13 @@ class TestEmbeddedEditor(unittest.TestCase):
 
     # ==================== 3. KIỂM THỬ RÀ SOÁT PHÁP LÝ (LEGAL GUARD) ====================
     def test_legal_constraint_guard(self):
-        # 1. Văn bản chuẩn 100%
+        # 1. Văn bản chuẩn 100% đầy đủ số hiệu và ngày tháng
         meta = {
             "standard_id": "ND30",
             "superior_agency": "ỦY BAN NHÂN DÂN",
             "issuing_agency": "THÀNH PHỐ HÀ NỘI",
+            "doc_number": "Số: 10/QĐ-UBND",
+            "date_str": "Hà Nội, ngày 15 tháng 10 năm 2026",
             "doc_type": "QUYẾT ĐỊNH",
             "doc_subject": "Về việc chuyển đổi số"
         }
@@ -124,7 +126,30 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertTrue(res["is_compliant"])
         self.assertGreaterEqual(res["score"], 95.0)
 
-        # 2. Văn bản vi phạm lề trái
+        # 2. Văn bản vi phạm xung đột loại văn bản (TỜ TRÌNH chứa lệnh QUYẾT ĐỊNH và Điều 1)
+        doc_mismatch = docx.Document()
+        sec = doc_mismatch.sections[0]
+        sec.top_margin = Mm(20.0)
+        sec.bottom_margin = Mm(20.0)
+        sec.left_margin = Mm(30.0)
+        sec.right_margin = Mm(15.0)
+        doc_mismatch.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        doc_mismatch.add_paragraph("Độc lập - Tự do - Hạnh phúc")
+        doc_mismatch.add_paragraph("..., ngày ... tháng ... năm 2026")
+        doc_mismatch.add_paragraph("QĐ-UBND")
+        doc_mismatch.add_paragraph("TỜ TRÌNH")
+        doc_mismatch.add_paragraph("Về việc 0")
+        doc_mismatch.add_paragraph("QUYẾT ĐỊNH:")
+        doc_mismatch.add_paragraph("Điều 1. Ban hành kế hoạch...")
+        res_mismatch = LegalConstraintGuard.validate_document(doc_mismatch, standard_id="ND30")
+        self.assertFalse(res_mismatch["is_compliant"])
+        self.assertLess(res_mismatch["score"], 60.0)
+        rule_ids = [v["rule_id"] for v in res_mismatch["violations"]]
+        self.assertIn("DOC_TYPE_STRUCTURE_MISMATCH", rule_ids)
+        self.assertIn("PLACEHOLDER_DATE", rule_ids)
+        self.assertIn("PLACEHOLDER_SUBJECT", rule_ids)
+
+        # 3. Văn bản vi phạm lề trái
         doc_bad_margin = docx.Document()
         doc_bad_margin.add_paragraph("Nội dung thử nghiệm")
         doc_bad_margin.sections[0].left_margin = Mm(10.0) # Lề trái chỉ 10mm (yêu cầu 30mm)
@@ -158,7 +183,7 @@ class TestEmbeddedEditor(unittest.TestCase):
 
     # ==================== 5. KIỂM THỬ CANVAS & THAO TÁC BẢNG BIỂU ====================
     def test_canvas_table_and_metadata_editing(self):
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QLabel
         app = QApplication.instance() or QApplication(sys.argv)
         
         from ui.editor.document_canvas import DocumentCanvas
@@ -228,7 +253,7 @@ class TestEmbeddedEditor(unittest.TestCase):
 
     def test_multipage_canvas_and_landscape_sections(self):
         """Kiểm tra phân trang rời rạc và xoay ngang trang tiếp theo độc lập"""
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QLabel
         app = QApplication.instance() or QApplication(sys.argv)
         from ui.editor.document_canvas import DocumentCanvas
 
@@ -260,7 +285,7 @@ class TestEmbeddedEditor(unittest.TestCase):
 
     def test_paragraph_spacing_and_indent_controls(self):
         """Kiểm tra chức năng giãn đoạn (xóa khoảng thừa trên/dưới) và thụt lề chuẩn Word"""
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QLabel
         app = QApplication.instance() or QApplication(sys.argv)
         from ui.editor.document_canvas import DocumentCanvas
 
@@ -310,7 +335,7 @@ class TestEmbeddedEditor(unittest.TestCase):
 
     def test_word_editor_window_and_ribbon_initialization(self):
         """Đảm bảo khởi tạo WordEditorWindow và AdministrativeRibbonBar thành công không lỗi NameError QMenu"""
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QLabel
         app = QApplication.instance() or QApplication(sys.argv)
         from ui.editor.administrative_ribbon import AdministrativeRibbonBar
         from ui.editor.word_editor_window import WordEditorWindow
@@ -323,6 +348,359 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertIsNotNone(editor_win.ribbon)
         self.assertIsNotNone(editor_win.canvas)
         editor_win.close()
+
+    def test_canvas_apply_nd30_alignment_and_leading_spaces_removal(self):
+        """Kiểm tra chức năng căn chuẩn NĐ 30: xóa bỏ khoảng trắng thụt lề thủ công và căn đều 2 bên"""
+        from PyQt6.QtWidgets import QApplication, QLabel
+        from PyQt6.QtCore import Qt
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+
+        canvas = DocumentCanvas()
+        ed = canvas.active_editor
+        # Thiết lập văn bản bị lệch dòng và có khoảng trắng gõ tay ở đầu dòng
+        ed.setPlainText("   Căn cứ Luật Tổ chức chính quyền địa phương;\n   QUYẾT ĐỊNH:\n   Điều 1. Ban hành kế hoạch.")
+
+        res = canvas.apply_nd30_standards_and_alignment()
+        self.assertGreater(res["fixed_paragraphs"], 0)
+        self.assertGreater(res["stripped_spaces"], 0)
+
+        # Kiểm tra văn bản sau khi xóa khoảng trắng đầu dòng
+        plain_text = ed.toPlainText()
+        lines = plain_text.splitlines()
+        self.assertFalse(lines[0].startswith(" "))
+        self.assertFalse(lines[1].startswith(" "))
+        self.assertFalse(lines[2].startswith(" "))
+
+        # Kiểm tra căn chỉnh
+        doc = ed.document()
+        b0 = doc.findBlockByLineNumber(0)
+        b1 = doc.findBlockByLineNumber(1)
+        b2 = doc.findBlockByLineNumber(2)
+        # b1 là "QUYẾT ĐỊNH:" nên phải căn giữa
+        self.assertEqual(b1.blockFormat().alignment(), Qt.AlignmentFlag.AlignCenter)
+        # b2 là "Điều 1..." nên phải căn đều 2 bên và có textIndent
+        self.assertEqual(b2.blockFormat().alignment(), Qt.AlignmentFlag.AlignJustify)
+        self.assertGreater(b2.blockFormat().textIndent(), 0.0)
+
+    def test_native_numbered_list_generation(self):
+        """Kiểm tra danh sách đánh số tự động chuẩn Word (1, 2, 3...) sử dụng QTextListFormat"""
+        from PyQt6.QtWidgets import QApplication, QLabel
+        from PyQt6.QtGui import QTextListFormat
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+
+        canvas = DocumentCanvas()
+        ed = canvas.active_editor
+        ed.setPlainText("Mục thử nghiệm")
+
+        # 1. Kích hoạt đánh số
+        canvas.insert_numbered_list()
+        qlist = ed.textCursor().currentList()
+        self.assertIsNotNone(qlist, "Không tạo được đối tượng QTextList")
+        self.assertEqual(qlist.format().style(), QTextListFormat.Style.ListDecimal)
+
+        # 2. Bấm lại nút để toggle off
+        canvas.insert_numbered_list()
+        self.assertIsNone(ed.textCursor().currentList(), "Không thoát được danh sách khi bấm toggle")
+
+    def test_metadata_dialog_dynamic_switching(self):
+        """Kiểm tra chuyển đổi động NĐ 30 vs HD 36 trên form Chỉnh sửa Thể thức"""
+        from PyQt6.QtWidgets import QApplication, QLabel
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+
+        dlg = MetadataEditorDialog(None, metadata={
+            "standard_id": "ND30",
+            "superior_agency": "ỦY BAN NHÂN DÂN HUYỆN",
+            "issuing_agency": "ỦY BAN NHÂN DÂN XÃ"
+        })
+        self.assertTrue(dlg.rb_nd30.isChecked())
+
+        # Chuyển sang Đảng
+        dlg.rb_hd36.setChecked(True)
+        self.assertEqual(dlg.txt_sup.text(), "HUYỆN ỦY")
+        self.assertEqual(dlg.txt_iss.text(), "ĐẢNG ỦY XÃ")
+        self.assertEqual(dlg.txt_auth.text(), "T/M ĐẢNG ỦY")
+        self.assertEqual(dlg.txt_pos.text(), "BÍ THƯ")
+        self.assertIn("NGHỊ QUYẾT ĐẢNG", [dlg.cb_type.itemText(i) for i in range(dlg.cb_type.count())])
+
+        # Chuyển lại Nhà nước
+        dlg.rb_nd30.setChecked(True)
+        self.assertEqual(dlg.txt_sup.text(), "ỦY BAN NHÂN DÂN HUYỆN")
+        self.assertEqual(dlg.txt_iss.text(), "ỦY BAN NHÂN DÂN XÃ")
+        self.assertEqual(dlg.txt_auth.text(), "TM. ỦY BAN NHÂN DÂN")
+        self.assertEqual(dlg.txt_pos.text(), "CHỦ TỊCH")
+
+    def test_compliance_audit_dialog_and_quick_fix(self):
+        """Kiểm tra hộp thoại rà soát thể thức với nút sửa nhanh ngày tháng và điểm số nguyên"""
+        from PyQt6.QtWidgets import QApplication, QLabel
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+        from ui.editor.compliance_audit_dlg import ComplianceAuditDialog
+
+        canvas = DocumentCanvas()
+        canvas.metadata["date_str"] = "..., ngày ... tháng ... năm 2026"
+
+        audit_res = {
+            "score": 55.4,
+            "error_count": 2,
+            "warning_count": 1,
+            "is_compliant": False,
+            "checklist": [{"name": "Lề in", "passed": True, "detail": "Đạt"}],
+            "violations": [
+                {
+                    "rule_id": "PLACEHOLDER_DATE",
+                    "severity": "error",
+                    "message": "Ngày tháng còn chứa ...",
+                    "suggestion": "Điền ngày thực tế"
+                }
+            ]
+        }
+
+        dlg = ComplianceAuditDialog(None, audit_result=audit_res, canvas=canvas)
+        # Sửa nhanh ngày tháng
+        dlg._on_quick_fix(audit_res["violations"][0])
+        self.assertNotIn("...", canvas.metadata["date_str"])
+        # Kiểm tra không có emoji trong nút và checklist dùng [ĐẠT]
+        self.assertNotIn("⚡", dlg.btn_auto_all.text())
+        self.assertNotIn("✓", dlg.scroll_widget.findChild(QLabel).text())
+        dlg.close()
+
+    def test_signer_name_boundary_check(self):
+        """Kiểm tra không báo lỗi người ký mẫu nếu tên người ký là 'Nguyễn Văn Anf', 'Nguyễn Văn An'"""
+        import docx
+        from docx.shared import Mm
+        from core.legal_constraint_guard import LegalConstraintGuard
+
+        # 1. Tên người ký là 'Nguyễn Văn Anf' -> Không được báo lỗi SAMPLE_SIGNER_NAME
+        doc1 = docx.Document()
+        doc1.sections[0].top_margin = Mm(20)
+        doc1.sections[0].bottom_margin = Mm(20)
+        doc1.sections[0].left_margin = Mm(30)
+        doc1.sections[0].right_margin = Mm(20)
+        doc1.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        doc1.add_paragraph("Độc lập - Tự do - Hạnh phúc")
+        doc1.add_paragraph("Hà Nội, ngày 04 tháng 11 năm 2026")
+        doc1.add_paragraph("QUYẾT ĐỊNH")
+        doc1.add_paragraph("Về việc khen thưởng cán bộ xuất sắc")
+        doc1.add_paragraph("QUYẾT ĐỊNH:")
+        doc1.add_paragraph("Điều 1. Khen thưởng đồng chí Nguyễn Văn Anf.")
+        doc1.add_paragraph("CHỦ TỊCH")
+        doc1.add_paragraph("Nguyễn Văn Anf")
+
+        res1 = LegalConstraintGuard.validate_document(doc1, standard_id="ND30")
+        rule_ids1 = [v["rule_id"] for v in res1["violations"]]
+        self.assertNotIn("SAMPLE_SIGNER_NAME", rule_ids1, "Bắt nhầm 'Nguyễn Văn Anf' thành người ký mặc định 'Nguyễn Văn A'")
+
+        # 2. Tên người ký là 'Nguyễn Văn An' -> Không được báo lỗi SAMPLE_SIGNER_NAME
+        doc2 = docx.Document()
+        doc2.sections[0].top_margin = Mm(20)
+        doc2.sections[0].bottom_margin = Mm(20)
+        doc2.sections[0].left_margin = Mm(30)
+        doc2.sections[0].right_margin = Mm(20)
+        doc2.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        doc2.add_paragraph("Độc lập - Tự do - Hạnh phúc")
+        doc2.add_paragraph("Hà Nội, ngày 04 tháng 11 năm 2026")
+        doc2.add_paragraph("QUYẾT ĐỊNH")
+        doc2.add_paragraph("Về việc phân công công tác")
+        doc2.add_paragraph("QUYẾT ĐỊNH:")
+        doc2.add_paragraph("Điều 1. Phân công công tác đồng chí.")
+        doc2.add_paragraph("CHỦ TỊCH")
+        doc2.add_paragraph("Nguyễn Văn An")
+
+        res2 = LegalConstraintGuard.validate_document(doc2, standard_id="ND30")
+        rule_ids2 = [v["rule_id"] for v in res2["violations"]]
+        self.assertNotIn("SAMPLE_SIGNER_NAME", rule_ids2, "Bắt nhầm 'Nguyễn Văn An' thành người ký mặc định 'Nguyễn Văn A'")
+
+        # 3. Tên người ký chính xác là 'Nguyễn Văn A' -> Phải cảnh báo SAMPLE_SIGNER_NAME
+        doc3 = docx.Document()
+        doc3.sections[0].top_margin = Mm(20)
+        doc3.sections[0].bottom_margin = Mm(20)
+        doc3.sections[0].left_margin = Mm(30)
+        doc3.sections[0].right_margin = Mm(20)
+        doc3.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        doc3.add_paragraph("Độc lập - Tự do - Hạnh phúc")
+        doc3.add_paragraph("Hà Nội, ngày 04 tháng 11 năm 2026")
+        doc3.add_paragraph("QUYẾT ĐỊNH")
+        doc3.add_paragraph("Về việc kiện toàn tổ chức")
+        doc3.add_paragraph("QUYẾT ĐỊNH:")
+        doc3.add_paragraph("Điều 1. Kiện toàn tổ chức.")
+        doc3.add_paragraph("CHỦ TỊCH")
+        doc3.add_paragraph("Nguyễn Văn A")
+
+        res3 = LegalConstraintGuard.validate_document(doc3, standard_id="ND30")
+        rule_ids3 = [v["rule_id"] for v in res3["violations"]]
+        self.assertIn("SAMPLE_SIGNER_NAME", rule_ids3, "Không phát hiện tên người ký mẫu mặc định 'Nguyễn Văn A'")
+
+    def test_metadata_dialog_scroll_and_no_emojis(self):
+        """Kiểm tra MetadataEditorDialog có vùng cuộn và hoàn toàn không chứa emoji rối mắt"""
+        from PyQt6.QtWidgets import QApplication, QLabel, QScrollArea
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+
+        dlg = MetadataEditorDialog(None, metadata={"standard_id": "ND30"})
+        # Đảm bảo có QScrollArea
+        self.assertIsInstance(dlg.scroll_area, QScrollArea)
+        # Đảm bảo không có emoji trong các nút radio chọn quy chuẩn
+        self.assertNotIn("🏛️", dlg.rb_nd30.text())
+        self.assertNotIn("⭐", dlg.rb_hd36.text())
+        # Đảm bảo không có emoji trong gợi ý
+        self.assertNotIn("🏛️", dlg.lbl_std_hint.text())
+        self.assertNotIn("⭐", dlg.lbl_std_hint.text())
+        dlg.close()
+
+    def test_metadata_dialog_smart_datepicker_and_combobox(self):
+        """Kiểm tra Bộ chọn Lịch ngày tháng thông minh và QComboBox chống nền đen"""
+        from PyQt6.QtWidgets import QApplication, QLabel, QListView
+        from PyQt6.QtCore import QDate
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+
+        # 1. Khởi tạo với ngày cụ thể
+        dlg1 = MetadataEditorDialog(None, metadata={
+            "location": "Thuận Hạnh",
+            "date_str": "Thuận Hạnh, ngày 04 tháng 11 năm 2026"
+        })
+        self.assertTrue(dlg1.rb_date_specific.isChecked())
+        self.assertEqual(dlg1.date_picker.date(), QDate(2026, 11, 4))
+        self.assertIn("ngày 04 tháng 11 năm 2026", dlg1._get_current_formatted_date())
+        # QComboBox view phải là QListView
+        self.assertIsInstance(dlg1.cb_type.view(), QListView)
+        dlg1.close()
+
+        # 2. Khởi tạo với ngày dự thảo chờ ký (...)
+        dlg2 = MetadataEditorDialog(None, metadata={
+            "location": "Xã",
+            "date_str": "..., ngày ... tháng ... năm 2026"
+        })
+        self.assertTrue(dlg2.rb_date_draft.isChecked())
+        self.assertFalse(dlg2.date_picker.isEnabled())
+        self.assertIn("ngày ... tháng ... năm 2026", dlg2._get_current_formatted_date())
+
+        # 3. Chuyển sang ngày cụ thể và chọn ngày 5 tháng 2 năm 2026 (yêu cầu số 0 phía trước per NĐ 30)
+        dlg2.rb_date_specific.setChecked(True)
+        dlg2.txt_loc.setText("Hà Nội")
+        dlg2.date_picker.setDate(QDate(2026, 2, 5))
+        formatted = dlg2._get_current_formatted_date()
+        self.assertEqual(formatted, "Hà Nội, ngày 05 tháng 02 năm 2026")
+        dlg2.close()
+
+    def test_template_switching_and_quick_fix_structure(self):
+        """Kiểm tra chuyển đổi mẫu văn bản và chức năng sửa nhanh cấu trúc tương ứng"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+        from ui.editor.compliance_audit_dlg import ComplianceAuditDialog
+
+        canvas = DocumentCanvas()
+        # Chuyển mẫu sang BÁO CÁO
+        tpl_bc = canvas.get_template_for_type("BÁO CÁO")
+        canvas.metadata.update(tpl_bc)
+        canvas.pages[0].editor.setHtml(tpl_bc["body_html"])
+        self.assertEqual(canvas.metadata["doc_type"], "BÁO CÁO")
+        self.assertIn("KẾT QUẢ ĐẠT ĐƯỢC", canvas.pages[0].editor.toPlainText())
+
+        # Tạo tình huống lỗi: Loại văn bản là BÁO CÁO nhưng body bị lẫn QUYẾT ĐỊNH
+        canvas.pages[0].editor.setPlainText("QUYẾT ĐỊNH: Điều 1. Thi hành.")
+        dlg = ComplianceAuditDialog(None, audit_result={"violations": [{"rule_id": "DOC_TYPE_STRUCTURE_MISMATCH"}]}, canvas=canvas)
+        # Sửa nhanh
+        dlg._on_quick_fix({"rule_id": "DOC_TYPE_STRUCTURE_MISMATCH"})
+        # Phải nạp đúng mẫu BÁO CÁO
+        self.assertIn("KẾT QUẢ ĐẠT ĐƯỢC", canvas.pages[0].editor.toPlainText())
+        dlg.close()
+
+    def test_metadata_date_mode_switching_and_today(self):
+        """Kiểm tra chuyển đổi linh hoạt giữa Ngày cụ thể và Chờ ký trong MetadataEditorDialog"""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QDate
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.metadata_editor_dlg import MetadataEditorDialog
+
+        # Khởi tạo ở chế độ dự thảo chờ ký
+        dlg = MetadataEditorDialog(None, metadata={
+            "location": "Xã",
+            "date_str": "..., ngày ... tháng ... năm 2026"
+        })
+        self.assertTrue(dlg.rb_date_draft.isChecked())
+        self.assertFalse(dlg.date_picker.isEnabled())
+        self.assertTrue(dlg.btn_today.isEnabled())  # Nút Hôm nay luôn sẵn sàng
+
+        # Nhấp nút Hôm nay -> phải tự động bật Ngày cụ thể và kích hoạt date_picker
+        dlg.btn_today.click()
+        self.assertTrue(dlg.rb_date_specific.isChecked())
+        self.assertFalse(dlg.rb_date_draft.isChecked())
+        self.assertTrue(dlg.date_picker.isEnabled())
+        self.assertEqual(dlg.date_picker.date(), QDate.currentDate())
+        self.assertNotIn("...", dlg._get_current_formatted_date())
+
+        # Chuyển lại sang Chờ ký
+        dlg.rb_date_draft.setChecked(True)
+        self.assertTrue(dlg.rb_date_draft.isChecked())
+        self.assertFalse(dlg.date_picker.isEnabled())
+
+        # Tương tác với DatePicker (click / focus / dateChanged) -> phải tự động quay lại Ngày cụ thể
+        dlg._on_date_picker_interacted()
+        self.assertTrue(dlg.rb_date_specific.isChecked())
+        self.assertTrue(dlg.date_picker.isEnabled())
+        dlg.close()
+
+    def test_party_resolution_punctuation_and_quick_fix(self):
+        """Kiểm tra dấu câu chuẩn mực cho Nghị quyết Đảng và cơ chế Sửa nhanh Căn cứ pháp lý"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.document_canvas import DocumentCanvas
+        from ui.editor.compliance_audit_dlg import ComplianceAuditDialog
+
+        canvas = DocumentCanvas()
+        # 1. Kiểm tra mẫu NGHỊ QUYẾT ĐẢNG
+        tpl = canvas.get_template_for_type("NGHỊ QUYẾT ĐẢNG")
+        self.assertIn("Căn cứ Điều lệ Đảng Cộng sản Việt Nam;", tpl["body_html"])
+        self.assertIn("Căn cứ Quy chế làm việc của Ban Chấp hành Đảng bộ xã;", tpl["body_html"])
+        self.assertNotIn("Căn cứ Quy chế làm việc của Ban Chấp hành Đảng bộ xã,", tpl["body_html"])
+
+        # 2. Giả lập văn bản có dòng Căn cứ kết thúc sai bằng dấu phẩy
+        canvas.pages[0].editor.setHtml(
+            "<p style='font-style: italic;'>Căn cứ Luật Ban hành văn bản quy phạm pháp luật,</p>"
+            "<p style='font-style: italic;'>Theo đề nghị của Công chức Văn phòng;</p>"
+            "<p>QUYẾT ĐỊNH:</p>"
+        )
+
+        # 3. Kích hoạt chuẩn hóa Nghị định 30
+        res = canvas.apply_nd30_standards_and_alignment()
+        body_text = canvas.pages[0].editor.toPlainText()
+
+        # Dòng Căn cứ phải được tự động sửa thành dấu chấm phẩy ';'
+        self.assertIn("Căn cứ Luật Ban hành văn bản quy phạm pháp luật;", body_text)
+        # Dòng Theo đề nghị phải được tự động sửa thành dấu phẩy ','
+        self.assertIn("Theo đề nghị của Công chức Văn phòng,", body_text)
+
+        # 4. Kiểm tra Sửa nhanh thông qua ComplianceAuditDialog
+        dlg = ComplianceAuditDialog(None, audit_result={
+            "violations": [{"rule_id": "LEGAL_GROUNDS_SYNTAX"}]
+        }, canvas=canvas)
+        refresh_called = []
+        dlg.audit_refresh_requested.connect(lambda: refresh_called.append(True))
+        dlg._on_quick_fix({"rule_id": "LEGAL_GROUNDS_SYNTAX"})
+        self.assertTrue(refresh_called)
+        dlg.close()
+
+    def test_editor_action_buttons(self):
+        """Kiểm tra đầy đủ 3 nút hành động tinh gọn trên thanh tiêu đề: Lưu văn bản, Xuất PDF, Ký số"""
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.word_editor_window import WordEditorWindow
+
+        win = WordEditorWindow(None)
+        self.assertIsNotNone(win.btn_save)
+        self.assertEqual(win.btn_save.text(), "Lưu văn bản")
+
+        self.assertIsNotNone(win.btn_export_pdf)
+        self.assertEqual(win.btn_export_pdf.text(), "Xuất PDF")
+
+        self.assertIsNotNone(win.btn_sign)
+        self.assertEqual(win.btn_sign.text(), "Ký số")
+        win.close()
 
 
 if __name__ == "__main__":

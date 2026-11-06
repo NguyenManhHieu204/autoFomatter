@@ -182,46 +182,77 @@ class DocParser:
         header_para_count = 0
         for i, p in enumerate(self.doc.paragraphs[:8]):
             text = p.text.strip()
-            text_u = text.upper()
             if not text:
-                header_para_count += 1
+                header_para_count = i + 1
                 continue
+
+            norm_text = re.sub(r'\s+', ' ', text).strip()
+            norm_u = norm_text.upper()
 
             # Nếu gặp Căn cứ, Điều, Chương, Đề mục La Mã (I., II.), Số (1., 2.), Chữ cái (a), b)), gạch/cộng đầu dòng -> Đã vào phần Thân bài, DỪNG QUÉT HEADER!
             if (
-                re.match(r'^[-–—•*+]?\s*(căn\s+cứ|can\s+cur|can\s+cu|theo\s+đề\s+nghị|theo\s+de\s+nghi|điều|dieu|chương|chuong|mục|muc|phần|phan)\b', text, re.IGNORECASE)
-                or re.match(r'^([IVXLCDM]+\.|\d+[\.:]|[a-z]\)|\+)\s+', text, re.IGNORECASE)
+                re.match(r'^[-–—•*+]?\s*(căn\s+cứ|can\s+cur|can\s+cu|theo\s+đề\s+nghị|theo\s+de\s+nghi|điều|dieu|chương|chuong|mục|muc|phần|phan)\b', norm_text, re.IGNORECASE)
+                or re.match(r'^([IVXLCDM]+\.|\d+[\.:]|[a-z]\)|\+)\s+', norm_text, re.IGNORECASE)
             ):
                 break
 
-            if "CỘNG HÒA XÃ HỘI" in text_u or "CONG HOA XA HOI" in text_u:
-                structure.header.motto_country = text
-                header_para_count = i + 1
-            elif "ĐỘC LẬP" in text_u or "DOC LAP" in text_u:
-                structure.header.motto_slogan = text
-                header_para_count = i + 1
-            elif "ĐẢNG CỘNG SẢN" in text_u or "DANG CONG SAN" in text_u:
-                structure.header.party_heading = text
-                header_para_count = i + 1
-            elif text_u.startswith("SỐ") or "Số:" in text or "Số " in text or text_u.startswith("SO ") or text_u.startswith("S6 "):
-                structure.header.doc_number = text
-                header_para_count = i + 1
-            elif DATE_PATTERN.search(text):
-                structure.header.location_date = text
-                header_para_count = i + 1
-            elif DOC_TYPES_PATTERN.search(text):
-                # Gặp tên loại văn bản -> Dừng quét header
+            # Gặp tên loại văn bản (BÁO CÁO, QUYẾT ĐỊNH...) -> Dừng quét header
+            if DOC_TYPES_PATTERN.match(norm_text) or any(norm_u.startswith(dt) for dt in ["BÁO CÁO", "QUYẾT ĐỊNH", "NGHỊ QUYẾT", "QUYẾT NGHỊ", "CHỈ THỊ", "KẾT LUẬN", "KẾ HOẠCH", "TỜ TRÌNH", "THÔNG BÁO", "CÔNG VĂN"]):
                 break
-            else:
-                # Chỉ coi là cơ quan ban hành nếu dòng ngắn (dưới 10 từ) và không chứa dấu chấm phẩy
-                if len(text.split()) <= 10 and ";" not in text and not text.startswith("-"):
+
+            # Kiểm tra dòng 2 cột phân cách bằng tab hoặc >= 3 khoảng trắng
+            parts = [part.strip() for part in re.split(r'\t+|\s{3,}', text) if part.strip()]
+            if len(parts) >= 2:
+                left_part = parts[0]
+                right_part = parts[-1]
+                r_u = right_part.upper()
+
+                if "CỘNG HÒA XÃ HỘI" in r_u or "CONG HOA XA HOI" in r_u:
+                    structure.header.motto_country = right_part
+                elif "ĐỘC LẬP" in r_u or "DOC LAP" in r_u:
+                    structure.header.motto_slogan = right_part
+                elif "ĐẢNG CỘNG SẢN" in r_u or "DANG CONG SAN" in r_u:
+                    structure.header.party_heading = right_part
+                elif DATE_PATTERN.search(right_part):
+                    structure.header.location_date = right_part
+
+                l_u = left_part.upper()
+                if l_u.startswith("SỐ") or left_part.startswith("Số:") or left_part.startswith("Số ") or l_u.startswith("SO ") or l_u.startswith("S6 "):
+                    structure.header.doc_number = left_part
+                else:
                     if not structure.header.superior_agency:
-                        structure.header.superior_agency = text
+                        structure.header.superior_agency = left_part
                     elif not structure.header.issuing_agency:
-                        structure.header.issuing_agency = text
+                        structure.header.issuing_agency = left_part
+
+                header_para_count = i + 1
+            else:
+                text_u = norm_u
+                if "CỘNG HÒA XÃ HỘI" in text_u or "CONG HOA XA HOI" in text_u:
+                    structure.header.motto_country = text
+                    header_para_count = i + 1
+                elif "ĐỘC LẬP" in text_u or "DOC LAP" in text_u:
+                    structure.header.motto_slogan = text
+                    header_para_count = i + 1
+                elif "ĐẢNG CỘNG SẢN" in text_u or "DANG CONG SAN" in text_u:
+                    structure.header.party_heading = text
+                    header_para_count = i + 1
+                elif text_u.startswith("SỐ") or "Số:" in text or "Số " in text or text_u.startswith("SO ") or text_u.startswith("S6 "):
+                    structure.header.doc_number = text
+                    header_para_count = i + 1
+                elif DATE_PATTERN.search(text):
+                    structure.header.location_date = text
                     header_para_count = i + 1
                 else:
-                    break
+                    # Chỉ coi là cơ quan ban hành nếu dòng ngắn (dưới 10 từ) và không chứa dấu chấm phẩy
+                    if len(text.split()) <= 10 and ";" not in text and not text.startswith("-"):
+                        if not structure.header.superior_agency:
+                            structure.header.superior_agency = text
+                        elif not structure.header.issuing_agency:
+                            structure.header.issuing_agency = text
+                        header_para_count = i + 1
+                    else:
+                        break
 
         structure.header.raw_paragraphs_count = header_para_count
 
@@ -255,22 +286,37 @@ class DocParser:
         Xác định đoạn văn Tên loại văn bản (QUYẾT ĐỊNH, CÔNG VĂN...) và Trích yếu nội dung
         """
         start_idx = structure.header.raw_paragraphs_count
-        search_limit = min(start_idx + 6, len(self.doc.paragraphs))
+        search_limit = min(start_idx + 8, len(self.doc.paragraphs))
 
         for i in range(start_idx, search_limit):
             p = self.doc.paragraphs[i]
             text = p.text.strip()
-            match = DOC_TYPES_PATTERN.match(text)
-            if match:
-                structure.doc_type = match.group(0).upper()
+            if not text:
+                continue
+            norm_text = re.sub(r'\s+', ' ', text).strip()
+            norm_u = norm_text.upper()
+            match = DOC_TYPES_PATTERN.match(norm_text)
+            if match or any(norm_u.startswith(dt) for dt in ["BÁO CÁO", "QUYẾT ĐỊNH", "NGHỊ QUYẾT", "QUYẾT NGHỊ", "CHỈ THỊ", "KẾT LUẬN", "KẾ HOẠCH", "TỜ TRÌNH", "THÔNG BÁO", "CÔNG VĂN"]):
+                if match:
+                    structure.doc_type = match.group(0).upper()
+                else:
+                    for dt in ["BÁO CÁO", "QUYẾT ĐỊNH", "NGHỊ QUYẾT", "QUYẾT NGHỊ", "CHỈ THỊ", "KẾT LUẬN", "KẾ HOẠCH", "TỜ TRÌNH", "THÔNG BÁO", "CÔNG VĂN"]:
+                        if norm_u.startswith(dt):
+                            structure.doc_type = dt
+                            break
                 structure.title_paragraphs_indices.append(i)
 
-                # Kiểm tra đoạn tiếp theo có phải trích yếu không (Về việc...)
-                if i + 1 < len(self.doc.paragraphs):
-                    next_text = self.doc.paragraphs[i + 1].text.strip()
-                    if next_text.startswith("Về việc") or next_text.startswith("về việc") or "V/v" in next_text:
+                # Quét đoạn tiếp theo để tìm trích yếu (Về việc...)
+                for j in range(i + 1, min(i + 4, len(self.doc.paragraphs))):
+                    next_p = self.doc.paragraphs[j]
+                    next_text = next_p.text.strip()
+                    if not next_text:
+                        continue
+                    norm_next = re.sub(r'\s+', ' ', next_text).strip()
+                    if norm_next.lower().startswith("về việc") or norm_next.lower().startswith("v/v"):
                         structure.doc_subject = next_text
-                        structure.title_paragraphs_indices.append(i + 1)
+                        structure.title_paragraphs_indices.append(j)
+                    break
                 break
 
     def _analyze_footer(self, structure: ParsedDocStructure):

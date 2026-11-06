@@ -197,28 +197,28 @@ QToolButton:checked {
     font-weight: 700;
 }
 
-/* Nút Đỏ / Xuất PDF */
+/* Nút Cảnh báo / Xóa */
 QPushButton#btnDanger {
-    background-color: #dc2626;
+    background-color: #ef4444;
     color: #ffffff;
-    border: 1px solid #b91c1c;
+    border: 1px solid #dc2626;
     font-weight: 600;
 }
 
 QPushButton#btnDanger:hover {
-    background-color: #b91c1c;
+    background-color: #dc2626;
 }
 
-/* Nút Tím / Ký số */
+/* Nút Ký số / Điểm nhấn tím Indigo */
 QPushButton#btnPurple {
-    background-color: #7c3aed;
+    background-color: #4f46e5;
     color: #ffffff;
-    border: 1px solid #6d28d9;
+    border: 1px solid #4338ca;
     font-weight: 600;
 }
 
 QPushButton#btnPurple:hover {
-    background-color: #6d28d9;
+    background-color: #4338ca;
 }
 
 /* Nút Chạy Chuẩn hóa Lớn */

@@ -228,14 +228,14 @@ class FormatterEngine:
             # 3. Dựng / Cập nhật Khung Đầu Văn bản (Module 2)
             self._apply_header_table(doc, structure, rules, standard_id, profile_override)
 
-            # 4. Định dạng các đoạn văn (Body & Headings) + Chạy Linter (Module 1 & 4)
+            # 4. Dựng / Cập nhật Khung Cuối Văn bản (Nơi nhận & Chữ ký - Module 3)
+            self._apply_footer_table(doc, structure, rules, standard_id, profile_override)
+
+            # 5. Định dạng các đoạn văn (Body & Headings) + Chạy Linter (Module 1 & 4)
             self._apply_paragraphs_formatting(doc, structure, rules, standard_id, report)
 
-            # 5. Định dạng các bảng biểu nội dung
+            # 6. Định dạng các bảng biểu nội dung
             self._apply_tables_formatting(doc, structure, rules, standard_id, report)
-
-            # 6. Dựng / Cập nhật Khung Cuối Văn bản (Nơi nhận & Chữ ký - Module 3)
-            self._apply_footer_table(doc, structure, rules, standard_id, profile_override)
 
             # 7. Lưu file kết quả an toàn
             doc.save(temp_target_path)
@@ -377,11 +377,13 @@ class FormatterEngine:
         """
         Dựng hoặc tái cấu trúc bảng Tiêu đề & Quốc hiệu ở đầu văn bản
         """
-        # Xác định thông tin cơ quan
-        superior = profile.get("superior_agency", "") if profile else structure.header.superior_agency
-        issuing = profile.get("issuing_agency", "") if profile else structure.header.issuing_agency
-        doc_num = profile.get("doc_number_symbol", "") if profile else structure.header.doc_number
-        loc = profile.get("location", "") if profile else (structure.header.location_date.split(",")[0].strip() if "," in structure.header.location_date else "")
+        # Xác định thông tin cơ quan: ƯU TIÊN TUYỆT ĐỐI BẢO TOÀN NỘI DUNG TỪ VĂN BẢN GỐC
+        # Chỉ lấy từ profile nếu văn bản gốc hoàn toàn không có thông tin
+        superior = structure.header.superior_agency if structure.header.superior_agency else (profile.get("superior_agency", "") if profile else "")
+        issuing = structure.header.issuing_agency if structure.header.issuing_agency else (profile.get("issuing_agency", "") if profile else "")
+        doc_num = structure.header.doc_number if structure.header.doc_number else (profile.get("doc_number_symbol", "") if profile else "")
+        doc_loc = structure.header.location_date.split(",")[0].strip() if ("," in structure.header.location_date) else ""
+        loc = doc_loc if doc_loc else (profile.get("location", "") if profile else "")
 
         # TỰ ĐỘNG LÀM SẠCH VÀ BẢO ĐẢM TÍNH ĐỒNG BỘ:
         # Nếu là chuẩn Đảng (HD36), tuyệt đối không để sót tên UBND / Nhà nước từ bảng cũ
@@ -478,13 +480,16 @@ class FormatterEngine:
 
             if lint_res.cleaned_text != p.text:
                 if not has_drawing:
-                    p.text = lint_res.cleaned_text
+                    p.text = lint_res.cleaned_text.strip()
                 else:
                     # Nếu đoạn văn chứa ảnh, CHỈ cập nhật các run thuần text, không gán p.text
                     for r in p.runs:
                         if not run_has_drawings_or_images(r) and r.text:
                             r_clean, _ = self.linter.clean_whitespace(r.text)
                             r.text = r_clean
+
+            if not has_drawing and p.text:
+                p.text = p.text.strip()
 
             text = p.text.strip()
 
@@ -754,10 +759,13 @@ class FormatterEngine:
 
         for idx, table in enumerate(doc.tables):
             # Bỏ qua bảng đầu nếu là Header Table
-            if idx == 0 and structure.header.has_existing_table:
-                continue
-            # Bỏ qua bảng cuối nếu là Footer Table
-            if idx == len(doc.tables) - 1 and structure.footer.has_existing_table:
+            if idx == 0 and (structure.header.has_existing_table or structure.header.raw_paragraphs_count > 0 or len(table.columns) == 2):
+                t_check = " ".join(c.text for r in table.rows for c in r.cells).upper()
+                if "CỘNG HÒA" in t_check or "ĐỘC LẬP" in t_check or "ĐẢNG CỘNG SẢN" in t_check:
+                    continue
+            # Bỏ qua bảng Footer (chứa Nơi nhận)
+            t_check = " ".join(c.text for r in table.rows for c in r.cells).upper()
+            if "NƠI NHẬN" in t_check or "NOI NHAN" in t_check:
                 continue
 
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -828,13 +836,11 @@ class FormatterEngine:
         """
         Dựng hoặc tái cấu trúc khung Nơi nhận & Chữ ký ở cuối văn bản
         """
-        recipients = profile.get("recipients", []) if profile else structure.footer.recipients
-        if not recipients and structure.footer.recipients:
-            recipients = structure.footer.recipients
-
-        auth = profile.get("authority_prefix", "") if profile else structure.footer.authority_prefix
-        pos = profile.get("signer_position", "") if profile else structure.footer.signer_position
-        name = profile.get("signer_name", "") if profile else structure.footer.signer_name
+        # ƯU TIÊN TUYỆT ĐỐI BẢO TOÀN NƠI NHẬN & CHỮ KÝ TỪ VĂN BẢN GỐC
+        recipients = structure.footer.recipients if structure.footer.recipients else (profile.get("recipients", []) if profile else [])
+        auth = structure.footer.authority_prefix if structure.footer.authority_prefix else (profile.get("authority_prefix", "") if profile else "")
+        pos = structure.footer.signer_position if structure.footer.signer_position else (profile.get("signer_position", "") if profile else "")
+        name = structure.footer.signer_name if structure.footer.signer_name else (profile.get("signer_name", "") if profile else "")
 
         # 1. Tìm trực tiếp vị trí paragraph bắt đầu phần Nơi nhận trong tài liệu
         footer_start_p = None
@@ -851,14 +857,15 @@ class FormatterEngine:
                 footer_paras.append(p)
 
         if footer_start_p is not None:
-            # Phân tích nội dung nơi nhận và chữ ký từ các đoạn văn tìm thấy
-            lines_text = [p.text for p in footer_paras]
-            parsed_footer = AdministrativeSanitizer.parse_in_text_footer(lines_text)
-            if parsed_footer:
-                recipients = parsed_footer["recipients"] or recipients
-                auth = parsed_footer["authority_prefix"] or auth
-                pos = parsed_footer["signer_position"] or pos
-                name = parsed_footer["signer_name"] or name
+            # Phân tích nội dung nơi nhận và chữ ký từ các đoạn văn tìm thấy nếu chưa có
+            if not recipients and not auth and not pos and not name:
+                lines_text = [p.text for p in footer_paras]
+                parsed_footer = AdministrativeSanitizer.parse_in_text_footer(lines_text)
+                if parsed_footer:
+                    recipients = parsed_footer["recipients"] or recipients
+                    auth = parsed_footer["authority_prefix"] or auth
+                    pos = parsed_footer["signer_position"] or pos
+                    name = parsed_footer["signer_name"] or name
 
             # Chèn Bảng 2 cột ẩn viền ngay trước đoạn văn Nơi nhận
             table = doc.add_table(rows=1, cols=2)
@@ -872,12 +879,12 @@ class FormatterEngine:
                     except Exception:
                         pass
 
-            # Xóa các bảng footer rác hoặc bảng cũ từ lần chuẩn hóa trước
+            # Xóa bảng footer cũ nếu đã có sẵn (chỉ xóa bảng 2 cột chứa Nơi nhận)
             header_tbl_elem = doc.tables[0]._tbl if doc.tables else None
             for tbl in list(doc.tables):
                 if tbl._tbl is not table._tbl and tbl._tbl is not header_tbl_elem:
-                    t_str = " ".join(c.text for r in tbl.rows for c in r.cells)
-                    if any(k in t_str for k in ["Lê Văn Cường", "Le Van Cuong", "Nguyễn Văn A"]) or (standard_id == "HD36" and "ỦY BAN NHÂN DÂN" in t_str):
+                    t_str = " ".join(c.text for r in tbl.rows for c in r.cells).upper()
+                    if ("NƠI NHẬN" in t_str or "NOI NHAN" in t_str) and len(tbl.columns) == 2:
                         try:
                             tbl._tbl.getparent().remove(tbl._tbl)
                         except Exception:

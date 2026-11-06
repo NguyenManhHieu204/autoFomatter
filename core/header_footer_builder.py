@@ -81,24 +81,29 @@ class HeaderFooterBuilder:
         if not raw_prefix:
             return ""
 
-        prefix = raw_prefix.strip().upper()
+        def _standardize_single(prefix_line: str) -> str:
+            line = prefix_line.strip().upper()
+            if not line:
+                return ""
+            if standard_id.upper() == "ND30":
+                line = re.sub(r'\bT\s*[\./]?\s*M\s*\.?\b|\bTM\s*\.?\b', 'TM.', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bK\s*[\./]?\s*T\s*\.?\b|\bKT\s*\.?\b', 'KT.', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bT\s*[\./]?\s*L\s*\.?\b|\bTL\s*\.?\b', 'TL.', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bT\s*[\./]?\s*U\s*[\./]?\s*Q\s*\.?\b|\bTUQ\s*\.?\b', 'TUQ.', line, flags=re.IGNORECASE)
+                line = re.sub(r'\.{2,}', '.', line)
+                line = re.sub(r'^(TM\.|KT\.|TL\.|TUQ\.)\s*', r'\1 ', line)
+                line = re.sub(r'[ \t]+', ' ', line).strip()
+            else: # HD36
+                line = re.sub(r'\bT\s*[\./]?\s*M\s*\.?\b|\bTM\s*\.?\b', 'T/M', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bK\s*[\./]?\s*T\s*\.?\b|\bKT\s*\.?\b', 'K/T', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bT\s*[\./]?\s*L\s*\.?\b|\bTL\s*\.?\b', 'T/L', line, flags=re.IGNORECASE)
+                line = re.sub(r'\bT\s*[\./]?\s*U\s*[\./]?\s*Q\s*\.?\b|\bTUQ\s*\.?\b', 'TUQ', line, flags=re.IGNORECASE)
+                line = re.sub(r'^(T/M|K/T|T/L|TUQ)\s*', r'\1 ', line)
+                line = re.sub(r'[ \t]+', ' ', line).strip()
+            return line
 
-        if standard_id.upper() == "ND30":
-            # Chuyển đổi mọi dạng T/M -> TM., K/T -> KT., T/L -> TL.
-            prefix = re.sub(r'T\s*/\s*M\b|\bT\.M\.?|\bTM\b', 'TM.', prefix)
-            prefix = re.sub(r'K\s*/\s*T\b|\bK\.T\.?|\bKT\b', 'KT.', prefix)
-            prefix = re.sub(r'T\s*/\s*L\b|\bT\.L\.?|\bTL\b', 'TL.', prefix)
-            prefix = re.sub(r'T\s*/\s*U\s*/\s*Q\b|\bTUQ\.?|\bT\.U\.Q\.?', 'TUQ.', prefix)
-            # Chuẩn hóa khoảng trắng: 'TM.  UBND' -> 'TM. UBND'
-            prefix = re.sub(r'\s+', ' ', prefix)
-        else: # HD36
-            # Chuyển đổi mọi dạng TM. -> T/M, KT. -> K/T, TL. -> T/L
-            prefix = re.sub(r'\bTM\.|\bT\.M\.?|\bTM\b', 'T/M', prefix)
-            prefix = re.sub(r'\bKT\.|\bK\.T\.?|\bKT\b', 'K/T', prefix)
-            prefix = re.sub(r'\bTL\.|\bT\.L\.?|\bTL\b', 'T/L', prefix)
-            prefix = re.sub(r'\s+', ' ', prefix)
-
-        return prefix
+        lines = [_standardize_single(l) for l in raw_prefix.split("\n")]
+        return "\n".join([l for l in lines if l])
 
     def build_header_table(
         self,
@@ -189,6 +194,8 @@ class HeaderFooterBuilder:
                 doc_number = f"{num_prefix}.../QĐ-..."
         else:
             clean_num = re.sub(r'^(số|so)\s*[:\.]?\s*', '', doc_number.strip(), flags=re.IGNORECASE)
+            clean_num = re.sub(r'\s*/\s*', '/', clean_num)
+            clean_num = re.sub(r'\s*-\s*', '-', clean_num)
             doc_number = f"{num_prefix}{clean_num}"
 
         r_num = p_l_num.add_run(doc_number)
@@ -256,6 +263,12 @@ class HeaderFooterBuilder:
             date_str = "ngày ... tháng ... năm 2026"
 
         full_date_text = f"{loc}, {date_str}" if not date_str.lower().startswith(loc.lower()) else date_str
+        full_date_text = re.sub(r'\s+,', ',', full_date_text)
+        try:
+            from core.spell_linter import SpellLinter
+            full_date_text = SpellLinter().lint_text(full_date_text, standard_id=standard_id).cleaned_text
+        except Exception:
+            pass
         r_date = p_r_date.add_run(full_date_text)
         format_run(r_date, size_pt=rules["header"]["date_font_size_pt"], italic=True)
 
@@ -321,6 +334,13 @@ class HeaderFooterBuilder:
             if not has_archive:
                 items.append(rules["recipients"]["default_last_item"])
 
+        try:
+            from core.spell_linter import SpellLinter
+            _linter = SpellLinter()
+            items = [_linter.lint_text(it, standard_id=standard_id).cleaned_text for it in items]
+        except Exception:
+            pass
+
         for item in items:
             p_item = cell_left.add_paragraph()
             p_item.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -346,10 +366,13 @@ class HeaderFooterBuilder:
             r_auth = p_auth.add_run(clean_auth + "\n")
             format_run(r_auth, size_pt=rules["signing"]["position_font_size_pt"], bold=True)
 
-        # Chức vụ người ký
-        pos_text = signer_position.strip().upper() if signer_position else "CHỦ TỊCH"
-        r_pos = p_auth.add_run(pos_text)
-        format_run(r_pos, size_pt=rules["signing"]["position_font_size_pt"], bold=True)
+        # Chức vụ người ký (chỉ thêm nếu chưa xuất hiện ở dòng cuối cùng của clean_auth)
+        pos_text = signer_position.strip().upper() if signer_position else ""
+        if not pos_text and not clean_auth:
+            pos_text = "CHỦ TỊCH"
+        if pos_text and not clean_auth.endswith(pos_text):
+            r_pos = p_auth.add_run(pos_text)
+            format_run(r_pos, size_pt=rules["signing"]["position_font_size_pt"], bold=True)
 
         # Khoảng trống chừa ký tay và đóng dấu (4 dòng đơn ~ 30-35mm)
         p_gap = cell_right.add_paragraph()
@@ -378,7 +401,7 @@ class HeaderFooterBuilder:
             except Exception:
                 pass
 
-        name_text = signer_name.strip() if signer_name else "Nguyễn Văn A"
+        name_text = " ".join([w.capitalize() for w in signer_name.strip().split()]) if signer_name else "Nguyễn Văn A"
         r_name = p_name.add_run(name_text)
         format_run(
             r_name,

@@ -59,25 +59,6 @@
         "- Các chi bộ trực thuộc;",
         "- Lưu: VP Đảng ủy."
       ]
-    },
-    {
-      "id": "party_ubkt_xa",
-      "name": "Ủy ban Kiểm tra Đảng ủy xã",
-      "standard_id": "HD36",
-      "superior_agency": "ĐẢNG ỦY XÃ",
-      "issuing_agency": "ỦY BAN KIỂM TRA",
-      "location": "Xã",
-      "doc_type": "Kế hoạch",
-      "doc_number_symbol": "KH/UBKT",
-      "authority_prefix": "T/M ỦY BAN KIỂM TRA",
-      "signer_position": "CHỦ NHIỆM",
-      "signer_name": "Phạm Văn D",
-      "recipients": [
-        "- Thường trực Đảng ủy xã;",
-        "- UBKT Huyện ủy (để b/c);",
-        "- Các chi bộ được kiểm tra, giám sát;",
-        "- Lưu: UBKT."
-      ]
     }
   ]
 }

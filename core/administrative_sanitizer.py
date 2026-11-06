@@ -442,46 +442,44 @@ class AdministrativeSanitizer:
             actual_end = start_idx + i + 1
 
             # Tách dòng chứa 2 phần (bên trái là nơi nhận, bên phải là chức vụ/quyền hạn)
-            m_split = re.search(r'(T/M|TM\.|K/T|KT\.|T/L|TL\.|BÍ\s+THƯ|BI\s+THU|CHỦ\s+TỊCH|CHU\s+TICH|PHÓ\s+BÍ\s+THƯ|PHO\s+BI\s+THU)', line, re.IGNORECASE)
-            if m_split and m_split.start() > 0:
-                left_part = line[:m_split.start()].strip()
-                right_part = line[m_split.start():].strip()
-                if left_part and not re.match(r'^(nơi\s*nhận|noi\s*nhan)', left_part, re.IGNORECASE):
+            parts = [p.strip() for p in re.split(r'\t+|\s{3,}', raw_line) if p.strip()]
+            if len(parts) >= 2:
+                left_part = parts[0]
+                right_part = parts[-1]
+                if left_part and not re.match(r'^(nơi\s*nhận|noi\s*nhan)\b', left_part, re.IGNORECASE):
                     recipients.append(left_part)
                 if right_part:
                     right_side.append(right_part)
-            elif line.startswith("-") or re.match(r'^(nơi\s*nhận|noi\s*nhan)', line, re.IGNORECASE):
-                # Kiểm tra xem có dính chữ con dấu bên phải không (DANG UY, UBND, XATHUAN...)
-                m_seal = re.search(r'\s+(ĐẢNG\s+ỦY\s+XÃ|DANG\s+[UO]Y\s+XA|UBND|XATHUAN|XÃ\s*THUẬN\s*AN|Waw\b)', line, re.IGNORECASE)
-                if m_seal:
-                    left_part = line[:m_seal.start()].strip()
-                    recipients.append(left_part)
+            elif len(parts) == 1:
+                part = parts[0]
+                if part.startswith("-") or re.match(r'^(nơi\s*nhận|noi\s*nhan)\b', part, re.IGNORECASE):
+                    if not re.match(r'^(nơi\s*nhận|noi\s*nhan)\b', part, re.IGNORECASE):
+                        recipients.append(part)
                 else:
-                    if not re.match(r'^(nơi\s*nhận|noi\s*nhan)', line, re.IGNORECASE):
-                        recipients.append(line)
-            else:
-                right_side.append(line)
+                    right_side.append(part)
 
         # Phân loại cột phải (Quyền hạn, Chức vụ, Họ tên)
-        auth_prefix = ""
+        auth_lines = []
         position = ""
         signer_name = ""
 
-        for item in right_side:
+        for idx, item in enumerate(right_side):
             item_clean = item.strip()
             if not item_clean:
                 continue
             item_healed, _ = AdministrativeSanitizer.heal_ocr_text(item_clean)
-            if re.match(r'^(T/M|TM\.|K/T|KT\.|T/L|TL\.|TUQ\.)\s*', item_clean, re.IGNORECASE):
-                auth_prefix = item_healed
-            elif re.match(r'^(BÍ\s+THƯ|BI\s+THU|CHỦ\s+TỊCH|CHU\s+TICH|PHÓ\s+BÍ\s+THƯ|PHO\s+BI\s+THU|TRƯỞNG\s+BAN|TRUONG\s+BAN|CHÁNH\s+VĂN\s+PHÒNG|CHANH\s+VAN\s+PHONG)\b', item_clean, re.IGNORECASE):
+            if re.match(r'^(T\s*[\./]?\s*M\b|TM\b|K\s*[\./]?\s*T\b|KT\b|T\s*[\./]?\s*L\b|TL\b|T\s*[\./]?\s*U\s*[\./]?\s*Q\b|TUQ\b)', item_clean, re.IGNORECASE):
+                auth_lines.append(item_healed)
+            elif re.match(r'^(BÍ\s+THƯ|BI\s+THU|CHỦ\s+TỊCH|CHU\s+TICH|PHÓ\s+CHỦ\s+TỊCH|PHO\s+CHU\s+TICH|PHÓ\s+BÍ\s+THƯ|PHO\s+BI\s+THU|GIÁM\s+ĐỐC|GIAM\s+DOC|PHÓ\s+GIÁM\s+ĐỐC|PHO\s+GIAM\s+DOC|TRƯỞNG\s+BAN|TRUONG\s+BAN|CHÁNH\s+VĂN\s+PHÒNG|CHANH\s+VAN\s+PHONG)\b', item_clean, re.IGNORECASE):
                 position = item_healed
-            elif not signer_name and len(item_clean.split()) <= 5 and not any(kw in item_clean.upper() for kw in ["ĐẢNG", "DANG", "UBND", "THUẬN", "TỈNH"]):
-                # Sửa tên cán bộ đặc thù dân tộc (K'Thanh)
+            elif idx == len(right_side) - 1 or (not signer_name and len(item_clean.split()) <= 5 and not any(kw in item_clean.upper() for kw in ["ĐẢNG", "DANG", "UBND", "THUẬN", "TỈNH", "HUYỆN", "XÃ"])):
+                # Sửa tên cán bộ đặc thù dân tộc (K'Thanh) hoặc viết hoa chuẩn
                 if item_clean.lower() in ("thanh", "k'thanh", "kthanh"):
                     signer_name = "K'Thanh"
                 else:
-                    signer_name = item_clean
+                    signer_name = " ".join([w.capitalize() for w in item_clean.split()])
+
+        auth_prefix = "\n".join(auth_lines)
 
         # Làm sạch recipients
         clean_recipients = []
@@ -536,6 +534,29 @@ class AdministrativeSanitizer:
             t_next = next_p.text.strip()
 
             if not t_next:
+                i += 1
+                continue
+
+            # 0. Không nối các dòng thuộc khối Header (Cơ quan, Quốc hiệu, Số văn bản, Địa danh ngày tháng)
+            t_p_u = re.sub(r'\s+', ' ', t_p).upper()
+            t_next_u = re.sub(r'\s+', ' ', t_next).upper()
+
+            is_header_elem = any(k in t_p_u or k in t_next_u for k in [
+                "CỘNG HÒA XÃ HỘI", "CONG HOA XA HOI", "ĐỘC LẬP - TỰ DO", "DOC LAP - TU DO",
+                "ĐẢNG CỘNG SẢN", "DANG CONG SAN"
+            ]) or any(t_p_u.startswith(k) or t_next_u.startswith(k) for k in [
+                "SỐ:", "SỐ ", "SO:", "SO ", "S6:"
+            ])
+            if is_header_elem:
+                i += 1
+                continue
+
+            # Không nối Tiêu đề văn bản (QUYẾT ĐỊNH, BÁO CÁO, KẾ HOẠCH...) hoặc Trích yếu (Về việc...)
+            is_title_or_subj = any(
+                re.match(rf'^(?:{dt})\b', t_p_u) or re.match(rf'^(?:{dt})\b', t_next_u)
+                for dt in ["BÁO CÁO", "QUYẾT ĐỊNH", "NGHỊ QUYẾT", "QUYẾT NGHỊ", "CHỈ THỊ", "KẾT LUẬN", "KẾ HOẠCH", "TỜ TRÌNH", "THÔNG BÁO", "CÔNG VĂN", "BIÊN BẢN", "GIẤY MỜI"]
+            ) or t_p_u.startswith("VỀ VIỆC") or t_next_u.startswith("VỀ VIỆC") or t_p_u.startswith("V/V") or t_next_u.startswith("V/V")
+            if is_title_or_subj:
                 i += 1
                 continue
 
@@ -619,7 +640,14 @@ class AdministrativeSanitizer:
 
             should_merge = False
             if not is_starter:
-                if not ends_punct or is_continuation or is_dangling:
+                # Chỉ nối khi chắc chắn là đoạn bị ngắt dòng vụn:
+                # - Dòng trước kết thúc bằng dấu gạch ngang nối từ (-)
+                # - Hoặc dòng sau là từ rớt dòng OCR / dấu đóng mở ngoặc
+                # - Hoặc dòng sau bắt đầu bằng chữ thường (câu đang dở)
+                # TUYỆT ĐỐI KHÔNG NỐI nếu dòng sau bắt đầu bằng chữ hoa (trừ khi có dấu '-' nối từ hoặc dangling OCR)
+                if t_p.endswith('-') or is_dangling:
+                    should_merge = True
+                elif is_continuation:
                     should_merge = True
 
             if should_merge:

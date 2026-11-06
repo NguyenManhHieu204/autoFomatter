@@ -730,17 +730,15 @@ class PdfDigitalSigner:
 
             # Bước 2: Ghép dấu (Merge stamp) vào đúng trang đích của tài liệu PDF
             stamp_reader = PdfReader(stamp_pdf_path)
-            writer = PdfWriter()
+            writer = PdfWriter(clone_from=reader)
 
-            for idx, p in enumerate(reader.pages):
-                if idx == actual_page and len(stamp_reader.pages) > 0:
-                    p.merge_page(stamp_reader.pages[0])
-                writer.add_page(p)
+            if 0 <= actual_page < len(writer.pages) and len(stamp_reader.pages) > 0:
+                writer.pages[actual_page].merge_page(stamp_reader.pages[0])
 
             # Bổ sung Metadata chứng thực điện tử vào PDF
             writer.add_metadata({
                 "/Title": os.path.basename(abs_in),
-                "/Producer": "Auto-Formatter 1.0 (Ban Co Yeu Chinh Phu PKI Engine)",
+                "/Producer": "Auto-Formatter 2.0 (Ban Co Yeu Chinh Phu PKI Engine)",
                 "/Creator": cert_info.display_name,
                 "/Subject": reason,
                 "/CreationDate": now.strftime("D:%Y%m%d%H%M%S+07'00'")
@@ -767,14 +765,15 @@ class PdfDigitalSigner:
 
             data_ptr = ctypes.c_char_p(doc_bytes)
             data_len = wintypes.DWORD(len(doc_bytes))
+            cert_arr = (ctypes.c_void_p * 1)(cert_info.cert_context)
 
             para = CRYPT_SIGN_MESSAGE_PARA()
             para.cbSize = ctypes.sizeof(CRYPT_SIGN_MESSAGE_PARA)
             para.dwMsgEncodingType = 0x00010001  # PKCS_7_ASN_ENCODING | X509_ASN_ENCODING
             para.pSigningCert = cert_info.cert_context
-            para.HashAlgorithm.pszObjId = b"1.2.840.113549.1.1.11"  # sha256RSA
+            para.HashAlgorithm.pszObjId = b"2.16.840.1.101.3.4.2.1"  # szOID_NIST_sha256
             para.cMsgCert = 1
-            para.rgpMsgCert = ctypes.cast(ctypes.pointer(ctypes.c_void_p(cert_info.cert_context)), ctypes.c_void_p)
+            para.rgpMsgCert = ctypes.cast(cert_arr, ctypes.c_void_p)
 
             cbSigned = wintypes.DWORD(0)
             # Lần 1: Xác định kích thước chữ ký số
@@ -784,16 +783,19 @@ class PdfDigitalSigner:
                 None, ctypes.byref(cbSigned)
             )
 
-            if ok_query and cbSigned.value > 0:
-                sig_buf = (ctypes.c_byte * cbSigned.value)()
-                # Lần 2: Token mở hộp thoại nhập PIN và thực hiện ký mật mã
-                ok_sign = crypt32.CryptSignMessage(
-                    ctypes.byref(para), True, 1,
-                    ctypes.byref(data_ptr), ctypes.byref(data_len),
-                    sig_buf, ctypes.byref(cbSigned)
-                )
-                if not ok_sign:
-                    return False, "Cán bộ đã hủy nhập mã PIN hoặc Token bị từ chối truy cập."
+            if not ok_query or cbSigned.value == 0:
+                err_code = ctypes.GetLastError()
+                return False, f"Không thể khởi tạo phiên ký qua Windows CryptoAPI / Token (Mã lỗi: 0x{err_code:08X})."
+
+            sig_buf = (ctypes.c_byte * cbSigned.value)()
+            # Lần 2: Token mở hộp thoại nhập PIN và thực hiện ký mật mã
+            ok_sign = crypt32.CryptSignMessage(
+                ctypes.byref(para), True, 1,
+                ctypes.byref(data_ptr), ctypes.byref(data_len),
+                sig_buf, ctypes.byref(cbSigned)
+            )
+            if not ok_sign:
+                return False, "Cán bộ đã hủy nhập mã PIN hoặc Token bị từ chối truy cập."
 
             # Sao chép tệp PDF đã gắn chữ ký số hoàn chỉnh ra tệp kết quả
             shutil.copy2(stamped_pdf_path, output_pdf_path)
@@ -802,14 +804,6 @@ class PdfDigitalSigner:
         except Exception as e:
             return False, f"Lỗi trong quá trình ký số: {str(e)}"
         finally:
-            # Giải phóng ngữ cảnh mật mã (Crypto Context) để bảo mật phiên làm việc
-            if cert_info and getattr(cert_info, 'cert_context', None):
-                try:
-                    crypt32 = ctypes.windll.crypt32
-                    crypt32.CertFreeCertificateContext(cert_info.cert_context)
-                except Exception:
-                    pass
-
             # Tiêu hủy an toàn các tệp tạm (Secure Shredding)
             if os.path.exists(temp_dir):
                 from core.security_guard import SecurityGuard

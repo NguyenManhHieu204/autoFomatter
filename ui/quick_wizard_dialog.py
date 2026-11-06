@@ -21,7 +21,7 @@ class QuickWizardDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Khởi tạo văn bản mới (Chuẩn Cấp Xã)")
+        self.setWindowTitle("Khởi tạo Văn bản Mới")
         self.resize(600, 540)
         self.setMinimumSize(540, 480)
         self.setStyleSheet("""

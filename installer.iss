@@ -2,7 +2,7 @@
 ; Đóng gói bộ cài đặt độc lập Windows (.exe installer)
 
 #define MyAppName "Auto-Formatter"
-#define MyAppVersion "1.0"
+#define MyAppVersion "2.0"
 #define MyAppPublisher "Ban Chi Dao CNTT"
 #define MyAppExeName "AutoFormatter.exe"
 
@@ -15,7 +15,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=dist\installer
-OutputBaseFilename=AutoFormatter_v1.0_Setup
+OutputBaseFilename=AutoFormatter_v2.0_Setup
 SetupIconFile=assets\app_icon.ico
 Compression=lzma
 SolidCompression=yes

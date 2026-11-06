@@ -36,8 +36,10 @@ class WordEditorWindow(QMainWindow):
 
     def __init__(self, parent=None, initial_metadata: Optional[Dict[str, Any]] = None, current_file_path: str = ""):
         super().__init__(parent)
-        self.setWindowTitle("Auto-Formatter 1.2 — Trình Soạn thảo Văn bản Hành chính & Đảng Tích hợp")
+        self.setWindowTitle("Soạn thảo Văn bản — Auto-Formatter")
         self.resize(1180, 860)
+        # Luôn mở sẵn toàn màn hình (Maximized) theo trải nghiệm soạn thảo chuyên nghiệp
+        self.setWindowState(Qt.WindowState.WindowMaximized)
         self.current_file_path = current_file_path
         self.win32_helper = Win32WordHelper()
 
@@ -115,48 +117,52 @@ class WordEditorWindow(QMainWindow):
 
         bar_layout.addStretch()
 
-        # Nút Lưu file DOCX
-        self.btn_save = QPushButton("Lưu văn bản (.docx)")
-        self.btn_save.setObjectName("btnPrimary")
+        # Nút Lưu văn bản (Hành động chính - Royal Blue)
+        self.btn_save = QPushButton("Lưu văn bản")
+        self.btn_save.setObjectName("btnSaveDocx")
         self.btn_save.setStyleSheet("""
-            QPushButton#btnPrimary {
+            QPushButton {
                 background-color: #2563eb; color: #ffffff; font-weight: 600;
-                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
+                font-size: 12.5px; padding: 7px 18px; border-radius: 6px;
                 border: 1px solid #1d4ed8;
             }
-            QPushButton#btnPrimary:hover { background-color: #1d4ed8; }
+            QPushButton:hover { background-color: #1d4ed8; }
+            QPushButton:pressed { background-color: #1e40af; }
         """)
         self.btn_save.setToolTip("Lưu tài liệu định dạng Word (.docx) chuẩn thể thức")
         self.btn_save.clicked.connect(self._save_document)
         bar_layout.addWidget(self.btn_save)
 
-        # Nút Xuất PDF
-        self.btn_export_pdf = QPushButton("Xuất tệp PDF")
-        self.btn_export_pdf.setObjectName("btnDanger")
+        # Nút Xuất PDF (Thứ cấp - Trang nhã, chuyên nghiệp)
+        self.btn_export_pdf = QPushButton("Xuất PDF")
+        self.btn_export_pdf.setObjectName("btnExportPdf")
         self.btn_export_pdf.setStyleSheet("""
-            QPushButton#btnDanger {
-                background-color: #dc2626; color: #ffffff; font-weight: 600;
-                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
-                border: 1px solid #b91c1c;
+            QPushButton {
+                background-color: #ffffff; color: #1e293b; font-weight: 600;
+                font-size: 12.5px; padding: 7px 18px; border-radius: 6px;
+                border: 1px solid #cbd5e1;
             }
-            QPushButton#btnDanger:hover { background-color: #b91c1c; }
+            QPushButton:hover { background-color: #f8fafc; border-color: #dc2626; color: #dc2626; }
+            QPushButton:pressed { background-color: #fee2e2; }
+            QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
         """)
-        self.btn_export_pdf.setToolTip("Xuất văn bản sang định dạng PDF chuẩn in ấn và lưu trữ")
+        self.btn_export_pdf.setToolTip("Xuất văn bản sang tệp PDF chuẩn in ấn và lưu trữ theo NĐ 30")
         self.btn_export_pdf.clicked.connect(self._export_pdf)
         bar_layout.addWidget(self.btn_export_pdf)
 
-        # Nút Ký số ngay
-        self.btn_sign = QPushButton("Ký số điện tử (NĐ 30)")
-        self.btn_sign.setObjectName("btnPurple")
+        # Nút Ký số (Ký số điện tử - Indigo hài hòa)
+        self.btn_sign = QPushButton("Ký số")
+        self.btn_sign.setObjectName("btnSignNow")
         self.btn_sign.setStyleSheet("""
-            QPushButton#btnPurple {
-                background-color: #7c3aed; color: #ffffff; font-weight: 600;
-                font-size: 12.5px; padding: 7px 16px; border-radius: 4px;
-                border: 1px solid #6d28d9;
+            QPushButton {
+                background-color: #4f46e5; color: #ffffff; font-weight: 600;
+                font-size: 12.5px; padding: 7px 18px; border-radius: 6px;
+                border: 1px solid #4338ca;
             }
-            QPushButton#btnPurple:hover { background-color: #6d28d9; }
+            QPushButton:hover { background-color: #4338ca; }
+            QPushButton:pressed { background-color: #3730a3; }
         """)
-        self.btn_sign.setToolTip("Xuất PDF và ký số PAdES với Token Ban Cơ yếu / Chữ ký số")
+        self.btn_sign.setToolTip("Xuất PDF và ký số điện tử với Token Ban Cơ yếu / Chữ ký số")
         self.btn_sign.clicked.connect(self._sign_document_now)
         bar_layout.addWidget(self.btn_sign)
 
@@ -245,13 +251,8 @@ class WordEditorWindow(QMainWindow):
         # 3. Bố cục & Thước kẻ
         self.ribbon.toggle_ruler_triggered.connect(self.ruler_container.setVisible)
         self.ribbon.page_orientation_changed.connect(self.canvas.set_page_orientation)
-        self.ribbon.margins_preset_triggered.connect(
-            lambda: QMessageBox.information(
-                self, "Căn lề chuẩn NĐ 30/2020",
-                "Trang soạn thảo đang tuân thủ nghiêm ngặt quy định lề in:\n"
-                "- Lề trên: 20 mm\n- Lề dưới: 20 mm\n- Lề trái: 30 mm\n- Lề phải: 15 mm"
-            )
-        )
+        self.ribbon.margins_preset_triggered.connect(lambda p: self._on_apply_margins_preset())
+        self.ribbon.apply_nd30_spacing_triggered.connect(self._on_apply_margins_preset)
         self.ribbon.lock_scaffolding_toggled.connect(self.canvas.set_lock_scaffolding)
 
         # 4. Công cụ thể thức & Sửa khung
@@ -281,32 +282,65 @@ class WordEditorWindow(QMainWindow):
             cfg = dlg.get_table_config()
             self.canvas.insert_table(cfg["rows"], cfg["cols"], cfg["border_type"])
 
+    def _on_apply_margins_preset(self):
+        """Tự động căn lề và định dạng chuẩn NĐ 30, loại bỏ thụt dòng thủ công xô lệch"""
+        stats = self.canvas.apply_nd30_standards_and_alignment()
+        QMessageBox.information(
+            self, "Căn lề & Định dạng chuẩn NĐ 30/2020",
+            f"<b>ĐÃ TỰ ĐỘNG CĂN CHỈNH TOÀN BỘ VĂN BẢN VỀ CHUẨN NĐ 30/2020:</b><br/><br/>"
+            f"• <b>Kích thước lề in:</b> Trái 30 mm, Phải 15 mm, Trên 20 mm, Dưới 20 mm.<br/>"
+            f"• <b>Đoạn văn bản đã chuẩn hóa:</b> {stats['fixed_paragraphs']} đoạn (căn đều hai bên - Justify, giãn dòng 1.25, giãn đoạn 0/6 pt).<br/>"
+            f"• <b>Khoảng trắng thụt lề thủ công đã xóa:</b> {stats['stripped_spaces']} vị trí xô lệch dòng.<br/>"
+            f"• <b>Thụt đầu dòng:</b> 1.0 - 1.27 cm chuẩn quy định."
+        )
+
     def _on_switch_doc_type(self, new_type: str):
-        self.canvas.metadata["doc_type"] = new_type
+        tpl = self.canvas.get_template_for_type(new_type)
+        # Giữ lại thông tin cơ quan, người ký tùy biến nếu có
+        old_signer = self.canvas.metadata.get("signer_name", "")
+        old_issuing = self.canvas.metadata.get("issuing_agency", "")
+        old_superior = self.canvas.metadata.get("superior_agency", "")
+        old_loc = self.canvas.metadata.get("location", "")
+
+        self.canvas.metadata.update(tpl)
+        if old_signer and old_signer != "Nguyễn Văn A":
+            self.canvas.metadata["signer_name"] = old_signer
+        if old_issuing and old_issuing not in ["ỦY BAN NHÂN DÂN XÃ", "ĐẢNG BỘ XÃ", "CƠ QUAN BAN HÀNH"]:
+            self.canvas.metadata["issuing_agency"] = old_issuing
+        if old_superior and old_superior not in ["ỦY BAN NHÂN DÂN HUYỆN", "HUYỆN ỦY"]:
+            self.canvas.metadata["superior_agency"] = old_superior
+        if old_loc and old_loc not in ["Hà Nội", "Xã"]:
+            self.canvas.metadata["location"] = old_loc
+
+        # Nạp cấu trúc nội dung mẫu chuẩn của loại văn bản mới
+        if self.canvas.pages and tpl.get("body_html"):
+            self.canvas.pages[0].editor.setHtml(tpl["body_html"])
+
         self.canvas._refresh_scaffolding_display()
         self.canvas.document_modified.emit()
 
     def _audit_document_compliance(self):
-        """Rà soát tuân thủ thể thức pháp lý thời gian thực"""
+        """Rà soát tuân thủ thể thức pháp lý thời gian thực với bảng phân tích chi tiết và nút sửa nhanh"""
         temp_docx = os.path.join(os.environ.get("TEMP", "."), "af_audit_temp.docx")
         try:
             doc = self._build_docx_object()
             doc.save(temp_docx)
             audit_res = LegalConstraintGuard.validate_document(doc, standard_id=self.canvas.metadata.get("standard_id", "ND30"))
 
-            score = audit_res["score"]
-            errs = audit_res["error_count"]
-            warns = audit_res["warning_count"]
+            from ui.editor.compliance_audit_dlg import ComplianceAuditDialog
+            dlg = ComplianceAuditDialog(self, audit_result=audit_res, canvas=self.canvas)
 
-            msg = f"<b>ĐIỂM CHUẨN HÓA THỂ THỨC: {score}/100</b><br/><br/>"
-            if audit_res["is_compliant"]:
-                msg += "Văn bản tuân thủ 100% quy chuẩn Nghị định 30/2020/NĐ-CP và Hướng dẫn 36-HD/VPTW.<br/>Sẵn sàng xuất bản và ký số điện tử."
-            else:
-                msg += f"Phát hiện {errs} lỗi nghiêm trọng và {warns} cảnh báo thể thức:<br/>"
-                for idx, v in enumerate(audit_res["violations"][:5]):
-                    msg += f"<br/><b>{idx + 1}. [{v['severity'].upper()}]</b> {v['message']}<br/><i>- Gợi ý: {v['suggestion']}</i>"
+            def _refresh_audit():
+                try:
+                    d = self._build_docx_object()
+                    d.save(temp_docx)
+                    new_res = LegalConstraintGuard.validate_document(d, standard_id=self.canvas.metadata.get("standard_id", "ND30"))
+                    dlg.update_audit_result(new_res)
+                except Exception:
+                    pass
 
-            QMessageBox.information(self, "Kết quả Rà soát Thể thức", msg)
+            dlg.audit_refresh_requested.connect(_refresh_audit)
+            dlg.exec()
         except Exception as e:
             QMessageBox.warning(self, "Lỗi kiểm tra", f"Không thể rà soát: {str(e)}")
         finally:
@@ -505,8 +539,12 @@ class WordEditorWindow(QMainWindow):
         base, _ = os.path.splitext(docx_path)
         pdf_target = f"{base}.pdf"
 
-        self.btn_export_pdf.setEnabled(False)
-        self.btn_export_pdf.setText("Đang xuất...")
+        if self.btn_export_pdf:
+            self.btn_export_pdf.setEnabled(False)
+            self.btn_export_pdf.setText("Đang xuất...")
+        if self.btn_sign:
+            self.btn_sign.setEnabled(False)
+            self.btn_sign.setText("Đang xử lý...")
         QApplication.processEvents()
 
         try:
@@ -534,8 +572,12 @@ class WordEditorWindow(QMainWindow):
                 QMessageBox.warning(self, "Lỗi xuất PDF", "Không thể tạo tệp PDF. Vui lòng kiểm tra quyền ghi tệp.")
                 return None
         finally:
-            self.btn_export_pdf.setEnabled(True)
-            self.btn_export_pdf.setText("Xuất tệp PDF")
+            if self.btn_export_pdf:
+                self.btn_export_pdf.setEnabled(True)
+                self.btn_export_pdf.setText("Xuất tệp PDF")
+            if self.btn_sign:
+                self.btn_sign.setEnabled(True)
+                self.btn_sign.setText("Ký số")
 
     def _sign_document_now(self):
         """Xuất PDF và mở trực tiếp Module Ký số điện tử với vị trí khung ký định vị tự động"""

@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import (
     QColor, QFont, QTextCursor, QTextCharFormat,
     QTextBlockFormat, QTextDocument, QPixmap, QTextTableFormat,
-    QTextLength
+    QTextLength, QTextListFormat
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
@@ -611,17 +611,334 @@ class DocumentCanvas(QFrame):
         html_fr += "</div>"
         self.lbl_footer_right.setText(html_fr)
 
+    @classmethod
+    def get_template_for_type(cls, doc_type: str) -> Dict[str, Any]:
+        """Trả về tiêu đề, trích yếu và nội dung mẫu tương ứng với từng loại văn bản"""
+        dt = (doc_type or "QUYẾT ĐỊNH").strip().upper()
+        if "TỜ TRÌNH" in dt:
+            return {
+                "doc_type": "TỜ TRÌNH",
+                "doc_subject": "Về việc phê duyệt Kế hoạch chuyển đổi số và chuẩn hóa văn bản năm 2026",
+                "doc_number": "Số: 01/TTr-UBND",
+                "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn A",
+                "recipients": [
+                    "- Ủy ban nhân dân huyện (để báo cáo);",
+                    "- Thường trực Đảng ủy, HĐND xã;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: left; text-indent: 0px;'><b>Kính gửi:</b> Ủy ban nhân dân huyện.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Thực hiện Kế hoạch phát triển kinh tế - xã hội và chuyển đổi số giai đoạn 2026 - 2030, Ủy ban nhân dân xã kính trình Ủy ban nhân dân huyện xem xét, phê duyệt Kế hoạch chuyển đổi số và chuẩn hóa văn bản hành chính năm 2026 với các nội dung chính sau:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>1. Sự cần thiết ban hành:</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>Nhằm nâng cao hiệu lực, hiệu quả quản lý nhà nước và tăng cường kỷ cương hành chính trên địa bàn...</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>2. Nội dung đề xuất:</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>Đầu tư nâng cấp hệ thống hạ tầng công nghệ thông tin, tập huấn nghiệp vụ cho đội ngũ cán bộ, công chức xã.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Ủy ban nhân dân xã kính trình Ủy ban nhân dân huyện xem xét, quyết định./.</p>
+                """
+            }
+        elif "BÁO CÁO" in dt:
+            return {
+                "doc_type": "BÁO CÁO",
+                "doc_subject": "Về việc rà soát, đánh giá công tác cải cách hành chính và chuyển đổi số",
+                "doc_number": "Số: 45/BC-SNV",
+                "authority_prefix": "TM. SỞ NỘI VỤ",
+                "signer_position": "GIÁM ĐỐC",
+                "signer_name": "Nguyễn Văn A",
+                "recipients": [
+                    "- Ủy ban nhân dân tỉnh (để báo cáo);",
+                    "- Giám đốc, các Phó Giám đốc Sở;",
+                    "- Các phòng chuyên môn;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px;'>Thực hiện ý kiến chỉ đạo của Ủy ban nhân dân tỉnh tại Công văn số 123/UBND-TH, Sở Nội vụ đã chủ trì, phối hợp với các cơ quan, đơn vị tiến hành kiểm tra tình hình thực tế. Qua rà soát, nhìn chung các đơn vị đã nghiêm túc triển khai nhiệm vụ được giao.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>I. KẾT QUẢ ĐẠT ĐƯỢC</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>1. Toàn thể cán bộ, công chức đã tích cực tham gia phong trào thi đua và hoàn thành 100% kế hoạch đề ra.</p>
+                <p style='text-align: justify; text-indent: 36px;'>2. Công tác chuyển đổi số và giải quyết thủ tục hành chính qua cổng dịch vụ công đạt tỷ lệ đúng hạn trên 98%.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>II. TỒN TẠI, HẠN CHẾ VÀ ĐỀ XUẤT KIẾN NGHỊ</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>Một số đơn vị chưa chủ động trong việc ứng dụng công nghệ thông tin. Đề nghị UBND tỉnh tiếp tục quan tâm, chỉ đạo./.</p>
+                """
+            }
+        elif "CÔNG VĂN" in dt:
+            return {
+                "doc_type": "CÔNG VĂN",
+                "doc_subject": "V/v phối hợp rà soát, thống kê số liệu phục vụ chuyển đổi số",
+                "doc_number": "Số: 12/UBND-VP",
+                "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn A",
+                "recipients": [
+                    "- Như trên;",
+                    "- Thường trực Đảng ủy xã;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: left; text-indent: 0px;'><b>Kính gửi:</b></p>
+                <p style='text-align: left; text-indent: 36px;'>- Các phòng chuyên môn, ban ngành đoàn thể xã;</p>
+                <p style='text-align: left; text-indent: 36px;'>- Trưởng các thôn, tổ dân phố trên địa bàn.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Để phục vụ công tác xây dựng cơ sở dữ liệu quốc gia và nâng cao chất lượng phục vụ nhân dân, Ủy ban nhân dân xã đề nghị các cơ quan, đơn vị triển khai thực hiện các nội dung sau:</p>
+                <p style='text-align: justify; text-indent: 36px;'>1. Khẩn trương rà soát, lập danh sách các trường hợp thuộc diện quản lý gửi về UBND xã trước ngày 15 hàng tháng.</p>
+                <p style='text-align: justify; text-indent: 36px;'>2. Phối hợp với công chức chuyên môn giải quyết kịp thời các vướng mắc phát sinh.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Nhận được công văn này, đề nghị các đơn vị nghiêm túc triển khai thực hiện./.</p>
+                """
+            }
+        elif "THÔNG BÁO" in dt:
+            return {
+                "doc_type": "THÔNG BÁO",
+                "doc_subject": "Về việc tổ chức tiếp nhận hồ sơ thủ tục hành chính trực tuyến",
+                "doc_number": "Số: 08/TB-UBND",
+                "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn A",
+                "recipients": [
+                    "- Toàn thể nhân dân trên địa bàn;",
+                    "- Bộ phận Một cửa;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px;'>Ủy ban nhân dân xã thông báo đến toàn thể nhân dân, tổ chức và cá nhân trên địa bàn xã nội dung sau:</p>
+                <p style='text-align: justify; text-indent: 36px;'>1. Kể từ ngày 01 tháng 01 năm 2026, Ủy ban nhân dân xã thực hiện tiếp nhận 100% hồ sơ thủ tục hành chính trực tuyến qua Cổng Dịch vụ công quốc gia.</p>
+                <p style='text-align: justify; text-indent: 36px;'>2. Đề nghị các tổ chức, công dân chủ động đăng ký tài khoản định danh điện tử VNeID để thực hiện các giao dịch hành chính.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Ủy ban nhân dân xã thông báo để toàn thể nhân dân được biết và phối hợp thực hiện./.</p>
+                """
+            }
+        elif "CHỈ THỊ" in dt:
+            return {
+                "standard_id": "HD36",
+                "superior_agency": "HUYỆN ỦY",
+                "issuing_agency": "BAN THƯỜNG VỤ",
+                "doc_type": "CHỈ THỊ",
+                "doc_subject": "Về tăng cường sự lãnh đạo của Đảng đối với công tác cải cách hành chính năm 2026",
+                "doc_number": "Số 02-CT/ĐU",
+                "authority_prefix": "T/M BAN THƯỜNG VỤ",
+                "signer_position": "BÍ THƯ",
+                "signer_name": "Nguyễn Văn An",
+                "recipients": [
+                    "- Thường trực Huyện ủy (để b/c);",
+                    "- Các chi bộ trực thuộc;",
+                    "- Lưu: VP."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px;'>Trong thời gian qua, các cấp ủy Đảng đã tích cực triển khai phong trào thi đua và đạt nhiều kết quả quan trọng trong công tác xây dựng Đảng và phát triển kinh tế - xã hội.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Để tiếp tục đẩy mạnh ứng dụng công nghệ thông tin và cải cách hành chính trong toàn hệ thống chính trị,</p>
+                <p style='text-align: center; font-weight: bold; margin: 12px 0;'>BAN THƯỜNG VỤ CHỈ THỊ:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>1.</b> Cấp ủy các chi bộ trực thuộc quán triệt sâu sắc các chỉ thị của Đảng về chuyển đổi số và chuẩn hóa văn bản.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>2.</b> Giao Văn phòng Đảng ủy thường xuyên theo dõi, đôn đốc và báo cáo Ban Thường vụ Đảng ủy kết quả thực hiện./.</p>
+                """
+            }
+        elif "NGHỊ QUYẾT ĐẢNG" in dt or ("NGHỊ QUYẾT" in dt and "HD36" in str(dt)):
+            return {
+                "standard_id": "HD36",
+                "superior_agency": "HUYỆN ỦY",
+                "issuing_agency": "ĐẢNG BỘ XÃ",
+                "doc_type": "NGHỊ QUYẾT",
+                "doc_subject": "Về nhiệm vụ công tác xây dựng Đảng và phát triển kinh tế năm 2026",
+                "doc_number": "Số 01-NQ/ĐU",
+                "authority_prefix": "T/M ĐẢNG ỦY",
+                "signer_position": "BÍ THƯ",
+                "signer_name": "Nguyễn Văn An",
+                "recipients": [
+                    "- Ban Thường vụ Huyện ủy (để b/c);",
+                    "- Các chi bộ trực thuộc;",
+                    "- Lưu: VP Đảng ủy."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Điều lệ Đảng Cộng sản Việt Nam;</p>
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Quy chế làm việc của Ban Chấp hành Đảng bộ xã;</p>
+                <p style='text-align: center; font-weight: bold; margin: 12px 0;'>QUYẾT NGHỊ:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Thông qua Kế hoạch phát triển công tác Đảng và các mục tiêu kinh tế - xã hội năm 2026.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 2.</b> Giao Ban Thường vụ Đảng ủy và Ủy ban nhân dân xã phối hợp tổ chức triển khai thực hiện thắng lợi Nghị quyết này./.</p>
+                """
+            }
+        elif "KẾ HOẠCH" in dt:
+            return {
+                "doc_type": "KẾ HOẠCH",
+                "doc_subject": "Về triển khai công tác cải cách hành chính và chuyển đổi số năm 2026",
+                "doc_number": "Số: 10/KH-UBND",
+                "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn An",
+                "recipients": [
+                    "- UBND huyện (để b/c);",
+                    "- Các ban ngành đoàn thể;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px;'>Thực hiện Kế hoạch của Ủy ban nhân dân huyện, Ủy ban nhân dân xã ban hành Kế hoạch triển khai công tác cải cách hành chính năm 2026 như sau:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>I. MỤC ĐÍCH, YÊU CẦU</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>1. Tăng cường hiệu lực, hiệu quả quản trị công vụ và giải quyết thủ tục hành chính cho nhân dân.</p>
+                <p style='text-align: justify; text-indent: 36px;'>2. 100% cán bộ, công chức sử dụng thành thạo hệ thống văn bản điện tử và ký số.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>II. NỘI DUNG VÀ BIỆN PHÁP THỰC HIỆN</b></p>
+                <p style='text-align: justify; text-indent: 36px;'>Tổ chức rà soát, cắt giảm thời gian xử lý thủ tục hành chính; kiểm tra định kỳ hàng quý./.</p>
+                """
+            }
+        elif "NGHỊ QUYẾT" in dt:
+            return {
+                "doc_type": "NGHỊ QUYẾT",
+                "doc_subject": "Về nhiệm vụ phát triển kinh tế - xã hội năm 2026",
+                "doc_number": "Số: 01/NQ-HĐND",
+                "authority_prefix": "TM. HỘI ĐỒNG NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn An",
+                "recipients": [
+                    "- Thường trực HĐND huyện;",
+                    "- Đảng ủy, HĐND, UBND xã;",
+                    "- Đại biểu HĐND xã;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Luật Tổ chức chính quyền địa phương ngày 19 tháng 6 năm 2015;</p>
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Sau khi xem xét Tờ trình của Ủy ban nhân dân xã và Báo cáo thẩm tra của các Ban HĐND xã,</p>
+                <p style='text-align: center; font-weight: bold; margin: 12px 0;'>QUYẾT NGHỊ:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Thông qua Kế hoạch phát triển kinh tế - xã hội, quốc phòng - an ninh năm 2026...</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 2.</b> Giao Ủy ban nhân dân xã tổ chức triển khai thực hiện thắng lợi Nghị quyết này.</p>
+                <p style='text-align: justify; text-indent: 36px;'>Nghị quyết này đã được Hội đồng nhân dân xã khóa XX thông qua ngày 20 tháng 12 năm 2025./.</p>
+                """
+            }
+        else: # Mặc định QUYẾT ĐỊNH
+            return {
+                "doc_type": "QUYẾT ĐỊNH",
+                "doc_subject": "Về việc ban hành Kế hoạch phát triển kinh tế - xã hội năm 2026",
+                "doc_number": "Số: 15/QĐ-UBND",
+                "authority_prefix": "TM. ỦY BAN NHÂN DÂN",
+                "signer_position": "CHỦ TỊCH",
+                "signer_name": "Nguyễn Văn A",
+                "recipients": [
+                    "- Thường trực HĐND xã;",
+                    "- Chủ tịch, các PCT UBND xã;",
+                    "- Các ban ngành, đoàn thể xã;",
+                    "- Các thôn, tổ dân phố;",
+                    "- Lưu: VT."
+                ],
+                "body_html": """
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Luật Tổ chức chính quyền địa phương ngày 19 tháng 6 năm 2015;</p>
+                <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Theo đề nghị của Công chức Văn phòng - Thống kê xã,</p>
+                <p style='text-align: center; font-weight: bold; margin: 12px 0;'>QUYẾT ĐỊNH:</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Ban hành kèm theo Quyết định này Kế hoạch chuyển đổi số và chuẩn hóa thể thức văn bản hành chính năm 2026 trên địa bàn xã.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 2.</b> Quyết định này có hiệu lực thi hành kể từ ngày ký.</p>
+                <p style='text-align: justify; text-indent: 36px;'><b>Điều 3.</b> Công chức Văn phòng - Thống kê, các ban ngành đoàn thể xã và các thôn, tổ dân phố chịu trách nhiệm thi hành Quyết định này./.</p>
+                """
+            }
+
     def _load_sample_body(self):
-        sample_html = """
-        <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Căn cứ Luật Tổ chức chính quyền địa phương ngày 19 tháng 6 năm 2015;</p>
-        <p style='text-align: justify; text-indent: 36px; font-style: italic;'>Theo đề nghị của Công chức Văn phòng - Thống kê xã,</p>
-        <p style='text-align: center; font-weight: bold; margin: 12px 0;'>QUYẾT ĐỊNH:</p>
-        <p style='text-align: justify; text-indent: 36px;'><b>Điều 1.</b> Ban hành kèm theo Quyết định này Kế hoạch chuyển đổi số và chuẩn hóa thể thức văn bản hành chính năm 2026 trên địa bàn xã.</p>
-        <p style='text-align: justify; text-indent: 36px;'><b>Điều 2.</b> Quyết định này có hiệu lực thi hành kể từ ngày ký.</p>
-        <p style='text-align: justify; text-indent: 36px;'><b>Điều 3.</b> Công chức Văn phòng - Thống kê, các ban ngành đoàn thể xã và các thôn, tổ dân phố chịu trách nhiệm thi hành Quyết định này./.</p>
-        """
+        tpl = self.get_template_for_type(self.metadata.get("doc_type", "QUYẾT ĐỊNH"))
         if self.pages:
-            self.pages[0].editor.setHtml(sample_html)
+            self.pages[0].editor.setHtml(tpl["body_html"])
+
+    def apply_nd30_standards_and_alignment(self) -> Dict[str, Any]:
+        """
+        Tự động căn chỉnh toàn bộ tài liệu về chuẩn Nghị định 30/2020/NĐ-CP:
+        - Chuẩn hóa lề in chuẩn: Trái 30mm (~113px), Phải 15mm (~57px), Trên 20mm, Dưới 20mm
+        - Dò quét từng đoạn văn bản:
+          + Loại bỏ các khoảng trắng / tab gõ thủ công ở đầu dòng gây xô lệch lề hàng
+          + Căn giữa tiêu đề chính (QUYẾT ĐỊNH:, QUYẾT NGHỊ:, BÁO CÁO, TỜ TRÌNH, ...)
+          + Căn trái dòng Kính gửi, Nơi nhận
+          + Căn đều 2 lề (AlignJustify) cho nội dung, căn cứ, điều khoản
+          + Thụt lề đầu dòng chuẩn NĐ 30: 36.0pt (~1.0 - 1.27 cm)
+          + Giãn dòng 1.25, giãn đoạn: 0 pt trên, 6 pt dưới
+        - Làm tươi lại khung thể thức và phát tín hiệu sửa đổi
+        """
+        fixed_count = 0
+        stripped_count = 0
+
+        for page in self.pages:
+            page.update_geometry()
+            doc = page.editor.document()
+            cursor = QTextCursor(doc)
+            cursor.beginEditBlock()
+            block = doc.begin()
+            while block.isValid():
+                text = block.text()
+                stripped = text.lstrip()
+                if len(stripped) < len(text):
+                    diff = len(text) - len(stripped)
+                    c = QTextCursor(block)
+                    c.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+                    c.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, diff)
+                    c.removeSelectedText()
+                    stripped_count += 1
+
+                clean_text = stripped.strip()
+                if clean_text:
+                    # Tự động chuẩn hóa dấu câu cho các dòng Căn cứ pháp lý (phải kết thúc bằng ';')
+                    if clean_text.startswith("Căn cứ "):
+                        if not (clean_text.endswith(";") or clean_text.endswith(".")):
+                            c_punc = QTextCursor(block)
+                            raw_b = block.text()
+                            r_strip = raw_b.rstrip()
+                            if len(r_strip) < len(raw_b):
+                                c_punc.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                                c_punc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, len(raw_b) - len(r_strip))
+                                c_punc.removeSelectedText()
+                            clean_text = block.text().strip()
+                            c_punc.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                            if clean_text.endswith(",") or clean_text.endswith(":"):
+                                c_punc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, 1)
+                                c_punc.insertText(";")
+                            else:
+                                c_punc.insertText(";")
+                            clean_text = block.text().strip()
+
+                    # Tự động chuẩn hóa dấu câu cho dòng Đề nghị trước lệnh ban hành (phải kết thúc bằng ',')
+                    elif clean_text.startswith("Theo đề nghị của"):
+                        if not clean_text.endswith(","):
+                            c_punc = QTextCursor(block)
+                            raw_b = block.text()
+                            r_strip = raw_b.rstrip()
+                            if len(r_strip) < len(raw_b):
+                                c_punc.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                                c_punc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, len(raw_b) - len(r_strip))
+                                c_punc.removeSelectedText()
+                            clean_text = block.text().strip()
+                            c_punc.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                            if clean_text.endswith(";") or clean_text.endswith(".") or clean_text.endswith(":"):
+                                c_punc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, 1)
+                                c_punc.insertText(",")
+                            else:
+                                c_punc.insertText(",")
+                            clean_text = block.text().strip()
+
+                    bf = block.blockFormat()
+                    upper_text = clean_text.upper()
+
+                    # Căn giữa cho tiêu đề chính
+                    if upper_text in [
+                        "QUYẾT ĐỊNH:", "QUYẾT ĐỊNH", "QUYẾT NGHỊ:", "QUYẾT NGHỊ",
+                        "TỜ TRÌNH", "BÁO CÁO", "THÔNG BÁO", "KẾ HOẠCH"
+                    ] or (len(clean_text) <= 40 and (upper_text.startswith("CHƯƠNG ") or upper_text.startswith("MỤC "))):
+                        bf.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        bf.setTextIndent(0.0)
+                    elif clean_text.lower().startswith("kính gửi:") or clean_text.lower().startswith("nơi nhận:"):
+                        bf.setAlignment(Qt.AlignmentFlag.AlignLeft)
+                        bf.setTextIndent(0.0)
+                    elif clean_text.startswith("- ") or clean_text.startswith("+ ") or clean_text.startswith("• "):
+                        bf.setAlignment(Qt.AlignmentFlag.AlignJustify)
+                        bf.setTextIndent(18.0)
+                    else:
+                        bf.setAlignment(Qt.AlignmentFlag.AlignJustify)
+                        bf.setTextIndent(36.0)  # ~1.0 - 1.27 cm chuẩn NĐ 30
+
+                    bf.setLineHeight(125, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
+                    bf.setTopMargin(0.0)
+                    bf.setBottomMargin(6.0)
+
+                    c = QTextCursor(block)
+                    c.setBlockFormat(bf)
+                    fixed_count += 1
+
+                block = block.next()
+            cursor.endEditBlock()
+
+        self._refresh_scaffolding_display()
+        self.document_modified.emit()
+
+        return {
+            "fixed_paragraphs": fixed_count,
+            "stripped_spaces": stripped_count,
+            "margins": "Trái 30mm, Phải 15mm, Trên 20mm, Dưới 20mm"
+        }
 
     def _on_cursor_changed(self):
         ed = self.active_editor
@@ -833,16 +1150,40 @@ class DocumentCanvas(QFrame):
             cursor.insertText(sym)
 
     def insert_bullet_list(self):
+        """Tạo danh sách gạch đầu dòng tự động chuẩn Word (Ctrl/Enter tự sinh mục tiếp theo)"""
         ed = self.active_editor
-        if ed:
-            cursor = ed.textCursor()
-            cursor.insertText("• ")
+        if not ed:
+            return
+        cursor = ed.textCursor()
+        current_list = cursor.currentList()
+        if current_list and current_list.format().style() == QTextListFormat.Style.ListDisc:
+            bf = cursor.blockFormat()
+            bf.setObjectIndex(-1)
+            cursor.setBlockFormat(bf)
+        else:
+            list_fmt = QTextListFormat()
+            list_fmt.setStyle(QTextListFormat.Style.ListDisc)
+            list_fmt.setIndent(1)
+            cursor.createList(list_fmt)
+        self.document_modified.emit()
 
     def insert_numbered_list(self):
+        """Tạo danh sách đánh số tự động chuẩn Word (1, 2, 3... - Tự tăng số khi gõ Enter)"""
         ed = self.active_editor
-        if ed:
-            cursor = ed.textCursor()
-            cursor.insertText("1. ")
+        if not ed:
+            return
+        cursor = ed.textCursor()
+        current_list = cursor.currentList()
+        if current_list and current_list.format().style() == QTextListFormat.Style.ListDecimal:
+            bf = cursor.blockFormat()
+            bf.setObjectIndex(-1)
+            cursor.setBlockFormat(bf)
+        else:
+            list_fmt = QTextListFormat()
+            list_fmt.setStyle(QTextListFormat.Style.ListDecimal)
+            list_fmt.setIndent(1)
+            cursor.createList(list_fmt)
+        self.document_modified.emit()
 
     def insert_table(self, rows: int, cols: int, border_type: str = "grid"):
         ed = self.active_editor

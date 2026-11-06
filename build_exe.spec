@@ -53,18 +53,33 @@ hiddenimports = [
     'shapely',
     'pyclipper',
     'ui.quick_wizard_dialog',
+    'ui.signature_dialog',
+    'ui.profile_dialog',
     'ui.editor.word_editor_window',
     'ui.editor.administrative_ribbon',
+    'ui.editor.compliance_audit_dlg',
     'ui.editor.document_canvas',
     'ui.editor.document_ruler',
     'ui.editor.table_properties_dlg',
     'ui.editor.metadata_editor_dlg',
+    'core.administrative_sanitizer',
+    'core.charset_converter',
+    'core.com_helper',
+    'core.doc_parser',
+    'core.formatter_engine',
+    'core.header_footer_builder',
+    'core.legal_constraint_guard',
+    'core.ocr_engine',
+    'core.security_guard',
+    'core.signature_engine',
+    'core.spell_linter',
+    'core.template_wizard',
+    'core.vietnamese_spell_checker',
+    'core.win32_helper',
     'core.editor_core.openxml_builder',
     'core.editor_core.native_canvas_engine',
     'core.editor_core.table_layout_manager',
     'core.editor_core.com_word_host',
-    'core.legal_constraint_guard',
-    'core.template_wizard',
 ]
 
 a = Analysis(
@@ -76,12 +91,15 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'scipy', 'pandas', 'IPython', 'notebook'],
+    excludes=['tkinter', 'matplotlib', 'scipy', 'pandas', 'IPython', 'notebook', 'fastapi', 'uvicorn', 'starlette', 'httpx', 'httpcore', 'anyio', 'pydoc', 'lib2to3'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Tối ưu hóa dung lượng: Loại bỏ các DLL video/ffmpeg thừa của OpenCV (~30 MB)
+a.binaries = [x for x in a.binaries if not ('opencv_videoio_ffmpeg' in x[0].lower() or 'opencv_videoio_ffmpeg' in os.path.basename(x[1]).lower())]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

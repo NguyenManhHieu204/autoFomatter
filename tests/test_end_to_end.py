@@ -74,11 +74,67 @@ class TestEndToEndFormatting(unittest.TestCase):
         # Bảng đầu tiên phải là Header Table 2 cột
         self.assertGreaterEqual(len(doc_res.tables), 1)
         self.assertEqual(len(doc_res.tables[0].columns), 2)
+        # Kiểm tra bảo toàn dữ liệu cơ quan ban hành và số ký hiệu từ văn bản gốc
+        cell0_text = doc_res.tables[0].cell(0, 0).text
+        self.assertIn("UBND THÀNH PHỐ HÀ NỘI", cell0_text)
+        self.assertIn("SỞ NỘI VỤ", cell0_text)
+        self.assertIn("15/QĐ-SNV", cell0_text)
 
         # Kiểm tra lề khổ A4
         section = doc_res.sections[0]
         self.assertAlmostEqual(section.page_width.mm, 210, delta=1)
         self.assertAlmostEqual(section.page_height.mm, 297, delta=1)
+
+    def test_space_delimited_report_preservation(self):
+        """Kiểm tra tài liệu BÁO CÁO gõ tay 2 cột bằng khoảng trắng/tab: không bị gộp dòng tiêu đề và bảo toàn tên cơ quan"""
+        test_file = "test_report_spacing.docx"
+        test_out = "test_report_spacing_out.docx"
+        try:
+            doc = docx.Document()
+            doc.add_paragraph("UBND TỈNH QUẢNG NINH                                CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+            doc.add_paragraph("SỞ NỘI VỤ                                                            Độc lập - Tự do - Hạnh phúc")
+            doc.add_paragraph("Số:  45 /SNV - VP                                  Quảng Ninh ,ngày 5 tháng 04 năm 2026")
+            doc.add_paragraph("BÁO   CÁO")
+            doc.add_paragraph("Về    việc rà  soát ,đánh  giá công tác cải cách hành chính và chuyển đổi số")
+            doc.add_paragraph("Thực hiện ý kiến chỉ đạo của ủy ban nhân dân tỉnh tại Công văn số 123/UBND-TH, Sở Nội vụ đã chủ trì kiểm tra tình hình thực tế.")
+            doc.add_paragraph("Nơi nhận :                                                          TM .UBND TỈNH")
+            doc.add_paragraph("- Như trên ;                                                         KT .CHỦ TỊCH")
+            doc.add_paragraph("- Lưu :VT ,SNV .                                                    PHÓ CHỦ TỊCH")
+            doc.add_paragraph("                                                                     nguyễn văn an")
+            doc.save(test_file)
+
+            engine = FormatterEngine()
+            rep = engine.format_document(test_file, test_out, standard_id="ND30")
+            self.assertTrue(rep.success)
+
+            res = docx.Document(test_out)
+            # Kiểm tra bảo toàn thông tin Header
+            h_c0 = res.tables[0].cell(0, 0).text
+            h_c1 = res.tables[0].cell(0, 1).text
+            self.assertIn("UBND TỈNH QUẢNG NINH", h_c0)
+            self.assertIn("SỞ NỘI VỤ", h_c0)
+            self.assertIn("45/SNV-VP", h_c0)
+            self.assertIn("Quảng Ninh", h_c1)
+
+            # Kiểm tra Tiêu đề, Trích yếu và Thân bài tách biệt độc lập
+            self.assertEqual(res.paragraphs[0].text, "BÁO CÁO")
+            self.assertTrue(res.paragraphs[1].text.startswith("Về việc rà soát"))
+            self.assertTrue(res.paragraphs[2].text.startswith("Thực hiện ý kiến chỉ đạo"))
+
+            # Kiểm tra Footer
+            f_c0 = res.tables[1].cell(0, 0).text
+            f_c1 = res.tables[1].cell(0, 1).text
+            self.assertIn("Như trên;", f_c0)
+            self.assertIn("Lưu: VT, SNV.", f_c0)
+            self.assertIn("PHÓ CHỦ TỊCH", f_c1)
+            self.assertIn("Nguyễn Văn An", f_c1)
+        finally:
+            for f in [test_file, test_out, f"{test_file}.bak"]:
+                if os.path.exists(f):
+                    try:
+                        os.remove(f)
+                    except Exception:
+                        pass
 
     def test_full_pipeline_hd36(self):
         engine = FormatterEngine()

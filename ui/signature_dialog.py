@@ -8,6 +8,9 @@ Tích hợp bộ xem trước PDF tương tác trực quan:
 """
 
 import os
+import sys
+import re
+import ctypes
 import datetime
 from typing import Optional, List, Dict, Any
 
@@ -347,7 +350,7 @@ class SignatureDialog(QDialog):
         self.signed_pdf_path: Optional[str] = None
         self.certs: List[CertificateInfo] = []
 
-        self.setWindowTitle("Ký số Điện tử Văn bản — Ban Cơ yếu Chính phủ & Nghị định 30/2020")
+        self.setWindowTitle("Ký số Điện tử — Nghị định 30")
         self.resize(1140, 750)
         self.setMinimumSize(980, 640)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
@@ -790,57 +793,77 @@ class SignatureDialog(QDialog):
             self.txt_img_path.setText(path)
             self._sync_canvas_preview()
 
-    def _execute_sign(self):
-        if not self.pdf_path or not os.path.exists(self.pdf_path):
-            QMessageBox.warning(self, "Tệp không tồn tại", f"Không tìm thấy tệp PDF nguồn: {self.pdf_path}")
-            return
+    def closeEvent(self, event):
+        """Dọn dẹp an toàn các handle Certificate Context khi đóng cửa sổ"""
+        self._cleanup_certs()
+        super().closeEvent(event)
 
-        folder = os.path.dirname(os.path.abspath(self.pdf_path))
-        base_name = os.path.basename(self.pdf_path)
-        stem, ext = os.path.splitext(base_name)
-        clean_stem = re.sub(r'(_ChuanHoa|_KySo|_signed)+$', '', stem, flags=re.IGNORECASE).strip()
-        output_pdf = os.path.join(folder, f"{clean_stem}_ChuanHoa_KySo{ext}")
-
-        # 1. Ký qua phần mềm Ban Cơ yếu (VGCA SignTool)
-        if self.rb_vgca.isChecked():
-            ok, msg = VGCABridge.open_with_vgca_tool(self.pdf_path)
-            if ok:
-                QMessageBox.information(
-                    self, "Ký số Ban Cơ yếu",
-                    "Đã kích hoạt tệp văn bản sang phần mềm Ban Cơ yếu.\n"
-                    "Vui lòng hoàn tất việc nhập mã PIN và chọn mẫu con dấu trên cửa sổ Ban Cơ yếu."
-                )
-                self.signed_pdf_path = self.pdf_path
-                self.accept()
-            else:
-                QMessageBox.warning(self, "Lỗi kết nối", msg)
-            return
-
-        # 2. Ký trực tiếp bằng Token (Native PAdES / CAPI)
-        if not self.certs:
-            QMessageBox.warning(self, "Thiếu Token", "Vui lòng cắm USB Token Ban Cơ yếu có chứa chứng thư số hợp lệ.")
-            return
-
-        selected_cert = self.cb_certs.currentData()
-        if not selected_cert:
-            selected_cert = self.certs[0]
-
-        if self.rb_personal.isChecked():
-            sign_type = "personal"
-        elif self.rb_combined.isChecked():
-            sign_type = "combined"
-        else:
-            sign_type = "agency"
-
-        signer_name = self.txt_signer_name.text().strip()
-        signer_title = self.txt_signer_title.text().strip()
-        stamp_img = self.txt_img_path.text().strip() if os.path.exists(self.txt_img_path.text().strip()) else None
-
-        self.btn_sign.setEnabled(False)
-        self.btn_sign.setText("Đang gọi USB Token...")
-        QApplication.processEvents()
-
+    def _cleanup_certs(self):
         try:
+            crypt32 = getattr(ctypes.windll, 'crypt32', None)
+            if crypt32 and hasattr(self, 'certs'):
+                for c in self.certs:
+                    ctx = getattr(c, 'cert_context', None)
+                    if ctx:
+                        try:
+                            crypt32.CertFreeCertificateContext(ctx)
+                        except Exception:
+                            pass
+                        c.cert_context = 0
+        except Exception:
+            pass
+
+    def _execute_sign(self):
+        try:
+            if not self.pdf_path or not os.path.exists(self.pdf_path):
+                QMessageBox.warning(self, "Tệp không tồn tại", f"Không tìm thấy tệp PDF nguồn: {self.pdf_path}")
+                return
+
+            folder = os.path.dirname(os.path.abspath(self.pdf_path))
+            base_name = os.path.basename(self.pdf_path)
+            stem, ext = os.path.splitext(base_name)
+            clean_stem = re.sub(r'(_ChuanHoa|_KySo|_signed)+$', '', stem, flags=re.IGNORECASE).strip()
+            output_pdf = os.path.join(folder, f"{clean_stem}_ChuanHoa_KySo{ext}")
+
+            # 1. Ký qua phần mềm Ban Cơ yếu (VGCA SignTool)
+            if self.rb_vgca.isChecked():
+                ok, msg = VGCABridge.open_with_vgca_tool(self.pdf_path)
+                if ok:
+                    QMessageBox.information(
+                        self, "Ký số Ban Cơ yếu",
+                        "Đã kích hoạt tệp văn bản sang phần mềm Ban Cơ yếu.\n"
+                        "Vui lòng hoàn tất việc nhập mã PIN và chọn mẫu con dấu trên cửa sổ Ban Cơ yếu."
+                    )
+                    self.signed_pdf_path = self.pdf_path
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Lỗi kết nối", msg)
+                return
+
+            # 2. Ký trực tiếp bằng Token (Native PAdES / CAPI)
+            if not self.certs:
+                QMessageBox.warning(self, "Thiếu Token", "Vui lòng cắm USB Token Ban Cơ yếu có chứa chứng thư số hợp lệ.")
+                return
+
+            selected_cert = self.cb_certs.currentData()
+            if not selected_cert:
+                selected_cert = self.certs[0]
+
+            if self.rb_personal.isChecked():
+                sign_type = "personal"
+            elif self.rb_combined.isChecked():
+                sign_type = "combined"
+            else:
+                sign_type = "agency"
+
+            signer_name = self.txt_signer_name.text().strip()
+            signer_title = self.txt_signer_title.text().strip()
+            stamp_img = self.txt_img_path.text().strip() if os.path.exists(self.txt_img_path.text().strip()) else None
+
+            self.btn_sign.setEnabled(False)
+            self.btn_sign.setText("Đang gọi USB Token...")
+            QApplication.processEvents()
+
             ok, msg = PdfDigitalSigner.sign_pdf_hybrid(
                 input_pdf_path=self.pdf_path,
                 output_pdf_path=output_pdf,
