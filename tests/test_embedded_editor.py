@@ -702,6 +702,42 @@ class TestEmbeddedEditor(unittest.TestCase):
         self.assertEqual(win.btn_sign.text(), "Ký số")
         win.close()
 
+    def test_load_document_preserves_metadata_and_avoids_duplicate_headers(self):
+        """Kiểm tra việc mở file DOCX có sẵn trong trình soạn thảo:
+        - Tự động bóc tách và nạp đúng metadata (UBND TỈNH QUẢNG NINH, SỞ NỘI VỤ, BÁO CÁO)
+        - Không bị chèn đè khung mẫu mặc định (QUYẾT ĐỊNH / ỦY BAN NHÂN DÂN XÃ)
+        - Thân bài chỉ chứa nội dung văn bản thực tế, không bị nhân đôi tiêu đề / trích yếu
+        """
+        sample_docx = "Tai_Lieu_Mau_Test/Van_Ban_Hanh_Chinh_Mau_Loi_ChuanHoa.docx"
+        if not os.path.exists(sample_docx):
+            self.skipTest("Không tìm thấy tệp DOCX mẫu kiểm tra.")
+
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.word_editor_window import WordEditorWindow
+
+        win = WordEditorWindow(None, current_file_path=sample_docx)
+
+        # 1. Kiểm tra metadata nạp chuẩn
+        self.assertEqual(win.canvas.metadata.get("doc_type"), "BÁO CÁO")
+        self.assertEqual(win.canvas.metadata.get("superior_agency"), "UBND TỈNH QUẢNG NINH")
+        self.assertEqual(win.canvas.metadata.get("issuing_agency"), "SỞ NỘI VỤ")
+        self.assertEqual(win.canvas.metadata.get("doc_number"), "Số: 45/SNV-VP")
+        self.assertEqual(win.canvas.metadata.get("signer_name"), "Nguyễn Văn An")
+        self.assertEqual(win.canvas.metadata.get("signer_position"), "PHÓ CHỦ TỊCH")
+
+        # 2. Kiểm tra hiển thị Scaffolding
+        self.assertEqual(win.canvas.lbl_doc_type.text(), "BÁO CÁO")
+        self.assertIn("SỞ NỘI VỤ", win.canvas.lbl_header_left.text())
+        self.assertNotIn("ỦY BAN NHÂN DÂN XÃ", win.canvas.lbl_header_left.text())
+
+        # 3. Kiểm tra thân bài không chứa tiêu đề mẫu hoặc nhân đôi
+        body_text = win.canvas.body_editor.toPlainText()
+        self.assertNotIn("QUYẾT ĐỊNH", body_text)
+        self.assertNotIn("Kế hoạch phát triển kinh tế", body_text)
+        self.assertTrue(body_text.strip().startswith("Thực hiện ý kiến chỉ đạo"))
+        win.close()
+
 
 if __name__ == "__main__":
     unittest.main()

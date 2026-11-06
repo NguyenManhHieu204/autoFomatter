@@ -98,6 +98,22 @@ class WindowsCertStoreHelper:
         "vgca", "cục chứng thực số", "cuc chung thuc so", "bộ quốc phòng ca", "bo quoc phong ca"
     ]
 
+    DEV_EXCLUSION_KEYWORDS = [
+        "localhost", "127.0.0.1", "iis express", "asp.net", "wcf", "development",
+        "dev-cert", "temp_", "test_"
+    ]
+
+    GUID_REGEX = re.compile(
+        r'^(?:trust_|test_|temp_)?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$',
+        re.IGNORECASE
+    )
+
+    RECOGNIZED_CA_KEYWORDS = [
+        "vgca", "ban cơ yếu", "ban co yeu", "cục chứng thực số", "viettel", "vnpt",
+        "fpt", "bkav", "misa", "smartca", "ca2", "nacencomm", "safecert", "safe-ca",
+        "easyca", "fastca", "winca", "ica", "trustca", "cyberlotus", "nc-ca", "vsign"
+    ]
+
     @classmethod
     def list_certificates(cls) -> List[CertificateInfo]:
         results: List[CertificateInfo] = []
@@ -112,6 +128,8 @@ class WindowsCertStoreHelper:
         crypt32.CertGetNameStringW.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
         crypt32.CertGetCertificateContextProperty.restype = ctypes.c_bool
         crypt32.CertGetCertificateContextProperty.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+        crypt32.CertGetEnhancedKeyUsage.restype = ctypes.c_bool
+        crypt32.CertGetEnhancedKeyUsage.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
         crypt32.CertDuplicateCertificateContext.restype = ctypes.c_void_p
         crypt32.CertDuplicateCertificateContext.argtypes = [ctypes.c_void_p]
         crypt32.CertCloseStore.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
@@ -162,6 +180,41 @@ class WindowsCertStoreHelper:
             cn = cls._extract_field(full_dn, "CN") or subject_str
             org = cls._extract_field(full_dn, "O")
             title = cls._extract_field(full_dn, "T") or cls._extract_field(full_dn, "TITLE")
+
+            # BỘ LỌC CHUYÊN NGHIỆP: Loại bỏ hoàn toàn chứng thư thử nghiệm / IIS / ASP.NET dev / GUID
+            # 1. Loại bỏ nếu CN hoặc Subject hoặc Issuer khớp định dạng GUID hoặc chuỗi test
+            clean_cn = re.sub(r'^(?:trust_|test_|temp_)', '', cn, flags=re.IGNORECASE).strip()
+            clean_sub = re.sub(r'^(?:trust_|test_|temp_)', '', subject_str, flags=re.IGNORECASE).strip()
+            if cls.GUID_REGEX.match(clean_cn) or cls.GUID_REGEX.match(clean_sub) or cls.GUID_REGEX.match(issuer_str):
+                continue
+
+            # 2. Loại bỏ nếu chứa từ khóa phát triển / localhost / IIS Express
+            check_str = f"{subject_str} {issuer_str} {cn}".lower()
+            if any(k in check_str for k in cls.DEV_EXCLUSION_KEYWORDS):
+                continue
+
+            # 3. Loại bỏ chứng thư tự ký (Self-signed) không thuộc các CA được công nhận tại Việt Nam
+            if subject_str == issuer_str:
+                if not any(k in issuer_str.lower() for k in cls.RECOGNIZED_CA_KEYWORDS + cls.VGCA_KEYWORDS):
+                    continue
+
+            # 4. Kiểm tra Enhanced Key Usage (EKU)
+            cbUsage = ctypes.c_uint32(0)
+            crypt32.CertGetEnhancedKeyUsage(pCert, 0, None, ctypes.byref(cbUsage))
+            if cbUsage.value > 0:
+                raw_usage = (ctypes.c_byte * cbUsage.value)()
+                if crypt32.CertGetEnhancedKeyUsage(pCert, 0, raw_usage, ctypes.byref(cbUsage)):
+                    cUsage = ctypes.c_uint32.from_buffer_copy(raw_usage[:4]).value
+                    if cUsage > 0:
+                        ptr_array = ctypes.cast(ctypes.byref(raw_usage, 8), ctypes.POINTER(ctypes.c_char_p * cUsage))
+                        oids = []
+                        for oi in range(cUsage):
+                            p_oid = ptr_array.contents[oi]
+                            if p_oid:
+                                oids.append(p_oid.decode('ascii', errors='ignore'))
+                        # Nếu chỉ có Server Auth (1.3.6.1.5.5.7.3.1), đây là SSL web certificate, không phải chứng thư ký số
+                        if oids == ['1.3.6.1.5.5.7.3.1']:
+                            continue
 
             # Nhận diện chứng thư Ban Cơ yếu Chính phủ
             is_vgca = any(kw in issuer_str.lower() or kw in full_dn.lower() for kw in cls.VGCA_KEYWORDS)
@@ -267,10 +320,10 @@ class PdfSignatureLocator:
     """
 
     AUTHORITY_KEYWORDS = [
-        "BAN THƯỜNG VỤ", "T/M.", "T/M", "BÍ THƯ", "PHÓ BÍ THƯ",
-        "CHỦ TỊCH", "PHÓ CHỦ TỊCH", "GIÁM ĐỐC", "PHÓ GIÁM ĐỐC",
-        "THỦ TRƯỞNG", "HIỆU TRƯỞNG", "TRƯỞNG PHÒNG", "TRƯỞNG BAN",
-        "KÝ THAY", "KT.", "TL.", "TUQ."
+        "PHÓ CHỦ TỊCH", "CHỦ TỊCH", "PHÓ BÍ THƯ", "BÍ THƯ",
+        "PHÓ GIÁM ĐỐC", "GIÁM ĐỐC", "BAN THƯỜNG VỤ", "THỦ TRƯỞNG",
+        "HIỆU TRƯỞNG", "TRƯỞNG PHÒNG", "TRƯỞNG BAN",
+        "KÝ THAY", "KT.", "TM.", "TL.", "TUQ."
     ]
 
     RECIPIENT_KEYWORDS = [
@@ -393,11 +446,9 @@ class PdfSignatureLocator:
                 if has_appendix_title:
                     page_score -= 200
 
-                # Tìm dòng quyền hạn / chức vụ ở khối ký kết thúc văn bản:
-                # Ưu tiên cực cao: Dòng chức vụ nằm ngang hàng với 'Nơi nhận' (cùng độ cao Y hoặc cách tối đa 120pt)
-                matched_auth_line = None
-                matched_signer_line = None
-                matched_kw = ""
+                # Tìm tất cả các dòng quyền hạn / chức vụ ở khối ký kết thúc văn bản:
+                # Ưu tiên cực cao: Các dòng nằm ngang hàng hoặc dưới 'Nơi nhận'
+                auth_lines_on_page = []
 
                 # Chỉ quét các dòng TRƯỚC Phụ lục / Bảng biểu (nếu có Phụ lục trên trang)
                 valid_lines = [
@@ -405,25 +456,21 @@ class PdfSignatureLocator:
                     if appendix_start_ly is None or li["ly"] >= appendix_start_ly - 5
                 ]
 
-                # Chiến lược 1: Tìm dòng quyền hạn ngang hàng Nơi nhận
+                # Chiến lược 1: Tìm các dòng quyền hạn/chức vụ ngang hàng Nơi nhận (+/- 150pt)
                 if has_recipient and recipient_ly is not None:
                     for li in valid_lines:
-                        # Thẳng hàng hoặc lân cận Nơi nhận trong khoảng +/- 120pt
-                        if abs(li["ly"] - recipient_ly) <= 120:
+                        if abs(li["ly"] - recipient_ly) <= 150:
                             right_runs = [r for r in li["runs"] if r["x"] > 0.38 * w]
                             right_text = "".join(r["text"] for r in right_runs).upper() if right_runs else ""
                             for kw in cls.AUTHORITY_KEYWORDS:
                                 if kw in right_text or (kw in li["text"].upper() and len(li["text"]) < 45):
                                     if not is_table_data_line(li):
-                                        matched_auth_line = li
-                                        matched_kw = kw
-                                        page_score += 350
+                                        auth_lines_on_page.append(li)
+                                        page_score += 150
                                         break
-                        if matched_auth_line:
-                            break
 
-                # Chiến lược 2: Nếu chưa tìm thấy ngang hàng Nơi nhận, quét các dòng thẩm quyền nửa bên phải
-                if not matched_auth_line and not is_dominated_by_table:
+                # Chiến lược 2: Nếu chưa tìm thấy, quét các dòng thẩm quyền nửa bên phải
+                if not auth_lines_on_page and not is_dominated_by_table:
                     for li in reversed(valid_lines):
                         full_line = li["text"].upper()
                         if any(full_line.startswith(prefix) for prefix in ["CĂN CỨ", "THEO", "THỰC HIỆN", "KÍNH ĐỀ NGHỊ", "GIAO", "YÊU CẦU", "ĐỀ NGHỊ"]):
@@ -435,18 +482,21 @@ class PdfSignatureLocator:
                         right_text = "".join(r["text"] for r in right_runs).upper() if right_runs else ""
                         for kw in cls.AUTHORITY_KEYWORDS:
                             if kw in right_text or (kw in full_line and len(full_line) < 45):
-                                matched_auth_line = li
-                                matched_kw = kw
+                                auth_lines_on_page.append(li)
                                 page_score += 100
                                 break
-                        if matched_auth_line:
-                            break
 
-                # Tìm tên người ký bên dưới dòng chức vụ (cách 15-130pt)
+                # Sắp xếp các dòng authority theo Y giảm dần (từ trên xuống dưới).
+                # Dòng thấp nhất (gần người ký nhất) chính là chức vụ thực tế của người ký!
+                auth_lines_on_page.sort(key=lambda l: l["ly"], reverse=True)
+                matched_auth_line = auth_lines_on_page[-1] if auth_lines_on_page else None
+                matched_signer_line = None
+
+                # Tìm tên người ký bên dưới dòng chức vụ (cách 15-140pt)
                 if matched_auth_line:
                     for li_below in valid_lines:
                         diff_pt = matched_auth_line["ly"] - li_below["ly"]
-                        if 15 < diff_pt < 130:
+                        if 15 < diff_pt < 140:
                             # Tên người ký thường ở nửa phải (X > 0.35 * w)
                             right_below = [r for r in li_below["runs"] if r["x"] > 0.35 * w]
                             if right_below:
@@ -466,7 +516,8 @@ class PdfSignatureLocator:
                     best_score = page_score
                     best_page = p_idx
                     if matched_auth_line:
-                        best_auth = matched_kw
+                        # Lấy chính xác chức vụ của dòng quyền hạn thấp nhất (ngay sát người ký)
+                        best_auth = matched_auth_line["text"].strip()
                         # Tọa độ X: đặt ở vị trí cột bên phải (55% bề rộng trang)
                         best_x = 0.55
 

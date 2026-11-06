@@ -381,33 +381,40 @@ class SignatureDialog(QDialog):
         nav_layout.setContentsMargins(4, 2, 4, 2)
         nav_layout.setSpacing(8)
 
-        self.btn_prev_page = QPushButton("◀ Trang trước")
+        self.btn_prev_page = QPushButton("Trang trước")
         self.btn_prev_page.setObjectName("btnSecondary")
+        self.btn_prev_page.setMinimumWidth(80)
         self.btn_prev_page.clicked.connect(self._prev_page)
 
         self.lbl_page_info = QLabel("Trang 1 / 1")
-        self.lbl_page_info.setStyleSheet("font-weight: 600; color: #1e293b; font-size: 13px;")
+        self.lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_page_info.setMinimumWidth(80)
+        self.lbl_page_info.setStyleSheet("font-weight: 600; color: #1e293b; font-size: 12.5px;")
 
-        self.btn_next_page = QPushButton("Trang sau ▶")
+        self.btn_next_page = QPushButton("Trang sau")
         self.btn_next_page.setObjectName("btnSecondary")
+        self.btn_next_page.setMinimumWidth(80)
         self.btn_next_page.clicked.connect(self._next_page)
 
-        self.btn_zoom_out = QPushButton("Thu nhỏ (-)")
-        self.btn_zoom_out.setFixedWidth(80)
+        self.btn_zoom_out = QPushButton("Thu nhỏ")
         self.btn_zoom_out.setObjectName("btnSecondary")
+        self.btn_zoom_out.setMinimumWidth(75)
         self.btn_zoom_out.clicked.connect(self._zoom_out)
 
         self.lbl_zoom = QLabel("100%")
-        self.lbl_zoom.setStyleSheet("color: #475569; font-size: 12px;")
+        self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_zoom.setMinimumWidth(45)
+        self.lbl_zoom.setStyleSheet("color: #475569; font-size: 12px; font-weight: 500;")
 
-        self.btn_zoom_in = QPushButton("Phóng to (+)")
-        self.btn_zoom_in.setFixedWidth(80)
+        self.btn_zoom_in = QPushButton("Phóng to")
         self.btn_zoom_in.setObjectName("btnSecondary")
+        self.btn_zoom_in.setMinimumWidth(75)
         self.btn_zoom_in.clicked.connect(self._zoom_in)
 
-        self.btn_auto_locate = QPushButton("Tự động tìm ô ký (NĐ 30)")
+        self.btn_auto_locate = QPushButton("Tìm ô ký")
+        self.btn_auto_locate.setMinimumWidth(85)
         self.btn_auto_locate.setStyleSheet(
-            "background-color: #ecfdf5; color: #047857; font-weight: bold; border: 1px solid #a7f3d0; border-radius: 4px; padding: 4px 10px;"
+            "background-color: #ecfdf5; color: #047857; font-weight: 600; border: 1px solid #a7f3d0; border-radius: 4px; padding: 4px 10px; font-size: 12px;"
         )
         self.btn_auto_locate.clicked.connect(self._auto_detect_signature_position)
 
@@ -547,9 +554,9 @@ class SignatureDialog(QDialog):
         self.txt_img_path = QLineEdit()
         self.txt_img_path.setPlaceholderText("Tùy chọn: Chọn ảnh .png trong suốt")
         self.txt_img_path.textChanged.connect(self._sync_canvas_preview)
-        self.btn_browse_img = QPushButton("Chọn...")
+        self.btn_browse_img = QPushButton("Duyệt ảnh")
         self.btn_browse_img.setObjectName("btnSecondary")
-        self.btn_browse_img.setFixedWidth(65)
+        self.btn_browse_img.setMinimumWidth(80)
         self.btn_browse_img.clicked.connect(self._browse_image)
 
         row_img.addWidget(self.lbl_img_caption)
@@ -716,24 +723,38 @@ class SignatureDialog(QDialog):
 
             if vgca_count > 0:
                 self.status_box.setStyleSheet("background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 6px 10px;")
+                self.lbl_status_badge.setText("ĐÃ KẾT NỐI")
+                self.lbl_status_badge.setStyleSheet("background-color: #dcfce7; color: #16a34a; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;")
                 self.lbl_status_text.setText(f"Đã kết nối USB Token Ban Cơ yếu ({vgca_count} chứng thư)")
                 self.lbl_status_text.setStyleSheet("font-weight: 600; color: #15803d; font-size: 12px;")
             else:
                 self.status_box.setStyleSheet("background-color: #f0f9ff; border: 1px solid #7dd3fc; border-radius: 8px; padding: 6px 10px;")
-                self.lbl_status_text.setText(f"Đã nhận diện {len(self.certs)} chứng thư số khả dụng")
+                self.lbl_status_badge.setText("ĐÃ KẾT NỐI")
+                self.lbl_status_badge.setStyleSheet("background-color: #e0f2fe; color: #0284c7; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;")
+                self.lbl_status_text.setText(f"Đã nhận diện {len(self.certs)} chứng thư số")
                 self.lbl_status_text.setStyleSheet("font-weight: 600; color: #0369a1; font-size: 12px;")
+            self.cb_certs.setEnabled(True)
             self.btn_sign.setEnabled(True)
         elif vgca_ok:
             self.status_box.setStyleSheet("background-color: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 6px 10px;")
+            self.lbl_status_badge.setText("VGCA ONLINE")
+            self.lbl_status_badge.setStyleSheet("background-color: #ede9fe; color: #7c3aed; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;")
             self.lbl_status_text.setText(f"Dịch vụ Ban Cơ yếu ({vgca_msg})")
             self.lbl_status_text.setStyleSheet("font-weight: 600; color: #6d28d9; font-size: 12px;")
             self.rb_vgca.setChecked(True)
+            self.cb_certs.setEnabled(False)
+            self.cb_certs.addItem("Ký qua phần mềm Ban Cơ yếu (SignTool)")
+            self.lbl_cert_detail.setText("Dịch vụ ký số Ban Cơ yếu đang chạy. Chữ ký số sẽ được điều hướng qua SignTool.")
             self.btn_sign.setEnabled(True)
         else:
-            self.status_box.setStyleSheet("background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px;")
-            self.lbl_status_text.setText("Chưa phát hiện USB Token. Hãy cắm Token vào máy.")
-            self.lbl_status_text.setStyleSheet("font-weight: 600; color: #b45309; font-size: 12px;")
-            self.lbl_cert_detail.setText("Không tìm thấy chứng thư số nào.")
+            self.status_box.setStyleSheet("background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 6px 10px;")
+            self.lbl_status_badge.setText("CHƯA KẾT NỐI")
+            self.lbl_status_badge.setStyleSheet("background-color: #ffe4e6; color: #e11d48; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;")
+            self.lbl_status_text.setText("Chưa phát hiện USB Token chuyên dùng")
+            self.lbl_status_text.setStyleSheet("font-weight: 600; color: #be123c; font-size: 12px;")
+            self.cb_certs.setEnabled(False)
+            self.cb_certs.addItem("Chưa kết nối USB Token ký số")
+            self.lbl_cert_detail.setText("Vui lòng cắm USB Token (Ban Cơ yếu, Viettel, VNPT, FPT, BKAV...) để thực hiện ký số.")
             self.btn_sign.setEnabled(False)
 
         self._sync_canvas_preview()
@@ -741,6 +762,11 @@ class SignatureDialog(QDialog):
     def _on_channel_changed(self):
         use_vgca = self.rb_vgca.isChecked()
         self.cert_group.setEnabled(not use_vgca)
+        if use_vgca:
+            vgca_ok, _, _ = VGCABridge.check_service_status()
+            self.btn_sign.setEnabled(vgca_ok)
+        else:
+            self.btn_sign.setEnabled(len(self.certs) > 0)
 
     def _on_cert_selected(self, idx: int):
         if idx < 0 or idx >= len(self.certs):

@@ -351,19 +351,145 @@ class WordEditorWindow(QMainWindow):
                     pass
 
     def _load_document_from_file(self, file_path: str):
-        """Nạp nội dung từ tệp docx vào trình soạn thảo"""
+        """Nạp nội dung và thể thức từ tệp docx vào trình soạn thảo"""
         try:
             import docx
-            doc = docx.Document(file_path)
+            import html
+            import re
+            from core.doc_parser import DocParser
+
+            parser = DocParser(file_path)
+            st = parser.parse()
+            doc = parser.doc
+
+            # 1. Cập nhật Metadata chuẩn thể thức từ tài liệu thực tế
+            meta_update = {}
+            if st.detected_standard:
+                meta_update["standard_id"] = st.detected_standard
+            if st.header.superior_agency:
+                meta_update["superior_agency"] = st.header.superior_agency
+            elif st.header.has_existing_table:
+                meta_update["superior_agency"] = ""
+
+            if st.header.issuing_agency:
+                meta_update["issuing_agency"] = st.header.issuing_agency
+            if st.header.doc_number:
+                meta_update["doc_number"] = st.header.doc_number
+            if st.header.location_date:
+                meta_update["date_str"] = st.header.location_date
+            if st.doc_type:
+                meta_update["doc_type"] = st.doc_type
+            if st.doc_subject:
+                meta_update["doc_subject"] = st.doc_subject
+            if st.footer.recipients:
+                meta_update["recipients"] = st.footer.recipients
+            if st.footer.authority_prefix:
+                meta_update["authority_prefix"] = st.footer.authority_prefix
+            if st.footer.signer_position:
+                meta_update["signer_position"] = st.footer.signer_position
+            if st.footer.signer_name:
+                meta_update["signer_name"] = st.footer.signer_name
+
+            self.canvas.metadata.update(meta_update)
+            self.canvas._refresh_scaffolding_display()
+
+            # Đồng bộ combobox chọn loại văn bản trên thanh Ribbon
+            if hasattr(self, 'ribbon') and hasattr(self.ribbon, 'cb_type') and st.doc_type:
+                self.ribbon.cb_type.blockSignals(True)
+                idx = self.ribbon.cb_type.findText(st.doc_type.upper())
+                if idx >= 0:
+                    self.ribbon.cb_type.setCurrentIndex(idx)
+                else:
+                    self.ribbon.cb_type.addItem(st.doc_type.upper())
+                    self.ribbon.cb_type.setCurrentText(st.doc_type.upper())
+                self.ribbon.cb_type.blockSignals(False)
+
+            # 2. Xác định các đoạn thân bài (Body) cần hiển thị trong editor
+            # LOẠI BỎ: Header (Quốc hiệu, cơ quan), Title (Tên loại VB, trích yếu), Footer (Nơi nhận, chữ ký)
+            # vì các thành phần này đã được hiển thị chuẩn xác trong các Frame widget chuyên biệt của Canvas!
+            body_indices = set(st.body_paragraphs_indices)
+            if not body_indices:
+                excluded = set(st.title_paragraphs_indices)
+                if st.header.raw_paragraphs_count > 0:
+                    excluded.update(range(st.header.raw_paragraphs_count))
+                if st.footer_para_indices:
+                    excluded.update(st.footer_para_indices)
+                body_indices = [i for i in range(len(doc.paragraphs)) if i not in excluded]
+
+            # 3. Chuyển đổi các đoạn văn thân bài sang HTML có định dạng (đậm, nghiêng, thụt lề chuẩn NĐ 30)
             html_parts = []
-            for p in doc.paragraphs:
+            for i in sorted(body_indices):
+                if i < 0 or i >= len(doc.paragraphs):
+                    continue
+                p = doc.paragraphs[i]
                 txt = p.text.strip()
-                if txt:
-                    html_parts.append(f"<p style='text-indent: 36px; margin: 4px 0;'>{txt}</p>")
+                if not txt:
+                    continue
+
+                # Tạo HTML từ các runs để giữ nguyên in đậm / in nghiêng
+                run_htmls = []
+                for r in p.runs:
+                    r_text = r.text
+                    if not r_text:
+                        continue
+                    esc = html.escape(r_text)
+                    if r.bold:
+                        esc = f"<b>{esc}</b>"
+                    if r.italic:
+                        esc = f"<i>{esc}</i>"
+                    if r.underline:
+                        esc = f"<u>{esc}</u>"
+                    run_htmls.append(esc)
+                inner = "".join(run_htmls) if run_htmls else html.escape(txt)
+
+                # Căn lề chuẩn NĐ 30 cho thân bài
+                u_txt = txt.upper()
+                if txt.endswith(":") and any(k in u_txt for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
+                    html_parts.append(f"<p style='text-align: center; font-weight: bold; margin: 10px 0;'>{inner}</p>")
+                elif txt.lower().startswith("kính gửi"):
+                    html_parts.append(f"<p style='text-align: left; text-indent: 0px; margin: 6px 0;'>{inner}</p>")
+                elif re.match(r'^[-–—•*]?\s*(căn\s+cứ|theo\s+đề\s+nghị)\b', txt, re.IGNORECASE):
+                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-style: italic; margin: 4px 0;'>{inner}</p>")
+                elif re.match(r'^(điều|dieu)\s+\d+', txt, re.IGNORECASE) or re.match(r'^[IVXLCDM]+\.\s+', txt):
+                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-weight: bold; margin: 6px 0;'>{inner}</p>")
+                else:
+                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; margin: 4px 0;'>{inner}</p>")
+
+            # 4. Kiểm tra các bảng trong thân bài (bỏ qua bảng Header đầu và bảng Footer cuối)
+            if doc.tables:
+                for idx_tbl, tbl in enumerate(doc.tables):
+                    if idx_tbl == 0 and st.header.has_existing_table:
+                        continue
+                    if idx_tbl == len(doc.tables) - 1 and st.footer.has_existing_table:
+                        continue
+                    tbl_html = ["<table border='1' cellspacing='0' cellpadding='4' style='width: 100%; border-collapse: collapse; margin: 10px 0;'>"]
+                    for row in tbl.rows:
+                        tbl_html.append("<tr>")
+                        for cell in row.cells:
+                            c_text = "<br/>".join(html.escape(cp.text.strip()) for cp in cell.paragraphs if cp.text.strip())
+                            tbl_html.append(f"<td style='border: 1px solid #000000; padding: 4px;'>{c_text}</td>")
+                        tbl_html.append("</tr>")
+                    tbl_html.append("</table>")
+                    html_parts.append("".join(tbl_html))
+
             if html_parts:
                 self.canvas.body_editor.setHtml("".join(html_parts))
-        except Exception:
-            pass
+            else:
+                self.canvas.body_editor.setPlainText("")
+
+        except Exception as e:
+            try:
+                import docx
+                doc = docx.Document(file_path)
+                html_parts = []
+                for p in doc.paragraphs:
+                    txt = p.text.strip()
+                    if txt:
+                        html_parts.append(f"<p style='text-indent: 36px; margin: 4px 0;'>{txt}</p>")
+                if html_parts:
+                    self.canvas.body_editor.setHtml("".join(html_parts))
+            except Exception:
+                pass
 
     def _build_docx_object(self):
         """Đóng gói dữ liệu Canvas hiện tại thành tài liệu docx chuẩn hóa"""
@@ -587,7 +713,11 @@ class WordEditorWindow(QMainWindow):
 
         agency_name = self.canvas.metadata.get("issuing_agency", "")
         sign_dlg = SignatureDialog(self, pdf_path=pdf_path, default_agency=agency_name)
-        # Tự động điền thông tin người ký từ khung soạn thảo
-        sign_dlg.txt_signer_name.setText(self.canvas.metadata.get("signer_name", ""))
-        sign_dlg.txt_signer_title.setText(self.canvas.metadata.get("signer_position", ""))
+        # Tự động điền thông tin người ký từ khung soạn thảo nếu có
+        name = self.canvas.metadata.get("signer_name", "").strip()
+        pos = self.canvas.metadata.get("signer_position", "").strip()
+        if name and name != "Nguyễn Văn A":
+            sign_dlg.txt_signer_name.setText(name)
+        if pos and pos != "CHỦ TỊCH":
+            sign_dlg.txt_signer_title.setText(pos)
         sign_dlg.exec()

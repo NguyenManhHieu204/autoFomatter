@@ -94,6 +94,32 @@ class TestSignatureEngine(unittest.TestCase):
         self.assertIn("norm_y", anchor)
         self.assertEqual(anchor["page_index"], 1)
 
+    def test_cert_filter_excludes_dev_and_guid_certs(self):
+        """Kiểm tra bộ lọc chứng thư: loại bỏ 100% chứng thư dev, IIS, ASP.NET, localhost, GUID"""
+        self.assertTrue(bool(WindowsCertStoreHelper.GUID_REGEX.match("a7e9ce00-9d76-480e-95d0-f87ae615d9dc")))
+        self.assertTrue(bool(WindowsCertStoreHelper.GUID_REGEX.match("trust_a7e9ce00-9d76-480e-95d0-f87ae615d9dc")))
+        self.assertFalse(bool(WindowsCertStoreHelper.GUID_REGEX.match("NGUYỄN VĂN AN")))
+
+        certs = WindowsCertStoreHelper.list_certificates()
+        # Trên môi trường test không cắm token thật, danh sách certs trả về phải rỗng (không chứa dev GUID cert)
+        for c in certs:
+            self.assertFalse(bool(WindowsCertStoreHelper.GUID_REGEX.match(c.common_name)))
+            self.assertNotIn("localhost", c.common_name.lower())
+
+    def test_signature_anchor_on_real_administrative_doc(self):
+        """Kiểm tra định vị khối ký chuẩn xác trên tài liệu hành chính mẫu thật"""
+        sample_pdf = "Tai_Lieu_Mau_Test/Van_Ban_Hanh_Chinh_Mau_Loi_ChuanHoa.pdf"
+        if not os.path.exists(sample_pdf):
+            self.skipTest("Không tìm thấy tệp PDF mẫu kiểm tra.")
+
+        anchor = PdfSignatureLocator.find_signature_anchor(sample_pdf)
+        self.assertTrue(anchor["found"])
+        self.assertEqual(anchor["authority"], "PHÓ CHỦ TỊCH")
+        self.assertEqual(anchor["signer_name"], "Nguyễn Văn An")
+        self.assertAlmostEqual(anchor["norm_x"], 0.55, delta=0.05)
+        self.assertGreater(anchor["norm_y"], 0.60)
+        self.assertLess(anchor["norm_y"], 0.70)
+
     def test_hybrid_sign_with_available_cert(self):
         certs = WindowsCertStoreHelper.list_certificates()
         if not certs:

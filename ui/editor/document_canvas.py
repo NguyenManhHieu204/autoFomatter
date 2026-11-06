@@ -564,7 +564,10 @@ class DocumentCanvas(QFrame):
         html_l = f"<div style='text-align: center; font-size: 11pt;'>"
         if sup:
             html_l += f"<div style='font-size: 11pt;'>{sup}</div>"
-        html_l += f"<div style='font-weight: bold; font-size: 11.5pt;'>{iss or 'ỦY BAN NHÂN DÂN XÃ'}</div>"
+        if iss:
+            html_l += f"<div style='font-weight: bold; font-size: 11.5pt;'>{iss}</div>"
+        elif not sup:
+            html_l += f"<div style='font-weight: bold; font-size: 11.5pt;'>CƠ QUAN BAN HÀNH</div>"
         html_l += f"<div style='font-weight: bold; font-size: 8pt; margin: 1px 0;'>{div_sym}</div>"
         html_l += f"<div style='font-size: 11.5pt; margin-top: 2px;'>{num}</div>"
         html_l += "</div>"
@@ -584,7 +587,8 @@ class DocumentCanvas(QFrame):
         self.lbl_header_right.setText(html_r)
 
         # Tiêu đề & Trích yếu
-        self.lbl_doc_type.setText(self.metadata.get("doc_type", "QUYẾT ĐỊNH").upper())
+        doc_type_text = self.metadata.get("doc_type", "").strip().upper() or "VĂN BẢN"
+        self.lbl_doc_type.setText(doc_type_text)
         self.lbl_doc_subject.setText(self.metadata.get("doc_subject", ""))
 
         # Cột Trái Footer: Nơi nhận
@@ -597,9 +601,9 @@ class DocumentCanvas(QFrame):
         self.lbl_footer_left.setText(html_fl)
 
         # Cột Phải Footer: Thẩm quyền & Chữ ký
-        auth = self.metadata.get("authority_prefix", "TM. ỦY BAN NHÂN DÂN")
-        pos = self.metadata.get("signer_position", "CHỦ TỊCH")
-        name = self.metadata.get("signer_name", "Nguyễn Văn A")
+        auth = self.metadata.get("authority_prefix", "").strip()
+        pos = self.metadata.get("signer_position", "").strip()
+        name = self.metadata.get("signer_name", "").strip()
 
         html_fr = "<div style='text-align: center; font-size: 12pt; line-height: 1.25;'>"
         if auth:
@@ -607,7 +611,8 @@ class DocumentCanvas(QFrame):
         if pos:
             html_fr += f"<div style='font-weight: bold;'>{pos}</div>"
         html_fr += "<div style='height: 48px;'>&nbsp;<br/>&nbsp;</div>"
-        html_fr += f"<div style='font-weight: bold; font-size: 12.5pt;'>{name}</div>"
+        if name:
+            html_fr += f"<div style='font-weight: bold; font-size: 12.5pt;'>{name}</div>"
         html_fr += "</div>"
         self.lbl_footer_right.setText(html_fr)
 
