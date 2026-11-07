@@ -1541,12 +1541,32 @@ class DocumentCanvas(QFrame):
             if img.width() > max_w or img.height() > max_h:
                 img = img.scaled(max_w, max_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
-            cursor.insertBlock()
-            block_fmt = cursor.blockFormat()
-            block_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            block_fmt.setTextIndent(0)
-            cursor.setBlockFormat(block_fmt)
-            cursor.insertImage(img.toImage())
+            try:
+                import base64
+                with open(file_path, "rb") as f_img:
+                    b64_str = base64.b64encode(f_img.read()).decode("ascii")
+                ext = os.path.splitext(file_path)[1].lower().replace(".", "")
+                mime = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
+                data_uri = f"data:{mime};base64,{b64_str}"
+
+                img_format = QTextImageFormat()
+                img_format.setName(data_uri)
+                img_format.setWidth(img.width())
+                img_format.setHeight(img.height())
+
+                cursor.insertBlock()
+                block_fmt = cursor.blockFormat()
+                block_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                block_fmt.setTextIndent(0)
+                cursor.setBlockFormat(block_fmt)
+                cursor.insertImage(img_format)
+            except Exception:
+                cursor.insertBlock()
+                block_fmt = cursor.blockFormat()
+                block_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                block_fmt.setTextIndent(0)
+                cursor.setBlockFormat(block_fmt)
+                cursor.insertImage(img.toImage())
 
             cursor.insertBlock()
             norm_fmt = cursor.blockFormat()
@@ -1625,7 +1645,7 @@ class DocumentCanvas(QFrame):
             prev_page.editor.setFocus()
 
     def get_body_paragraphs(self) -> List[str]:
-        """Trích xuất danh sách các đoạn văn bản trong toàn bộ các trang để chuyển giao sang OpenXmlBuilder"""
+        """Trích xuất danh sách các đoạn văn bản và hình ảnh trong toàn bộ các trang để chuyển giao sang OpenXmlBuilder"""
         paras = []
         for idx, p in enumerate(self.pages):
             if idx > 0:
@@ -1634,14 +1654,31 @@ class DocumentCanvas(QFrame):
                     paras.append("[PAGE_BREAK_LANDSCAPE]")
                 else:
                     paras.append("[PAGE_BREAK]")
-            raw_text = p.editor.toPlainText()
-            for line in raw_text.splitlines():
-                line_str = line.strip()
-                if not line_str:
-                    continue
-                if any(k in line_str.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG"]):
-                    continue
-                paras.append(line_str)
+
+            doc = p.editor.document()
+            for b_idx in range(doc.blockCount()):
+                b = doc.findBlockByNumber(b_idx)
+
+                # Kiểm tra hình ảnh trong block
+                it = b.begin()
+                img_name = None
+                while not it.atEnd():
+                    frag = it.fragment()
+                    if frag.isValid() and frag.charFormat().isImageFormat():
+                        img_name = frag.charFormat().toImageFormat().name()
+                        break
+                    it += 1
+
+                txt = b.text().strip()
+                if img_name:
+                    paras.append(f"[IMAGE_DATA:{img_name}]")
+                    clean_txt = txt.replace("\ufffc", "").strip()
+                    if clean_txt:
+                        paras.append(clean_txt)
+                elif txt:
+                    if any(k in txt.upper() for k in ["[PAGE_BREAK]", "PAGE BREAK", "NGẮT TRANG"]):
+                        continue
+                    paras.append(txt)
         return paras
 
     def get_document_sections(self) -> List[Dict[str, Any]]:

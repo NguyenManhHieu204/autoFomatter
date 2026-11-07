@@ -8,6 +8,8 @@ core/editor_core/openxml_builder.py: Bộ sinh mã cấu trúc OpenXML / DOCX ch
 
 import os
 import re
+import io
+import base64
 from typing import Dict, Any, List, Optional
 import docx
 from docx.shared import Mm, Pt, RGBColor
@@ -304,13 +306,60 @@ class OpenXmlBuilder:
                 new_sec.right_margin = Mm(15.0)
                 continue
 
+            # Xử lý khối hình ảnh [IMAGE_DATA:...] (Bảo toàn 100% hình ảnh không bị xóa bỏ, căn giữa, co vừa A4)
+            if t_strip.startswith("[IMAGE_DATA:") and t_strip.endswith("]"):
+                img_src = t_strip[len("[IMAGE_DATA:"):-1].strip()
+                try:
+                    img_bytes = None
+                    if img_src.startswith("data:"):
+                        parts = img_src.split("base64,")
+                        if len(parts) == 2:
+                            img_bytes = base64.b64decode(parts[1])
+                    elif os.path.exists(img_src):
+                        with open(img_src, "rb") as f_i:
+                            img_bytes = f_i.read()
+
+                    if img_bytes:
+                        buf = io.BytesIO(img_bytes)
+                        target_w_mm = 160.0 if doc.sections[-1].orientation != WD_ORIENT.LANDSCAPE else 220.0
+                        try:
+                            from PIL import Image as PilImage
+                            pil_img = PilImage.open(io.BytesIO(img_bytes))
+                            calc_w_mm = pil_img.size[0] * 0.264583 # Giả định 96 DPI màn hình sang mm
+                            if 30.0 < calc_w_mm < target_w_mm:
+                                target_w_mm = calc_w_mm
+                        except Exception:
+                            pass
+
+                        p_img = doc.add_paragraph()
+                        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        p_img.paragraph_format.first_line_indent = Mm(0)
+                        p_img.paragraph_format.space_before = Pt(6)
+                        p_img.paragraph_format.space_after = Pt(4)
+                        p_img.paragraph_format.line_spacing = 1.0
+                        r_img = p_img.add_run()
+                        r_img.add_picture(buf, width=Mm(target_w_mm))
+                except Exception as ex:
+                    print(f"Lỗi nhúng hình ảnh OpenXML: {ex}")
+                continue
+
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p.paragraph_format.line_spacing = 1.2
             p.paragraph_format.space_before = Pt(2)
             p.paragraph_format.space_after = Pt(2)
+
+            # Chú thích hình ảnh / sơ đồ (Hình 1:, Sơ đồ 2:, Nguồn:...) -> Căn giữa, in nghiêng 11pt, không thụt đầu dòng
+            if (re.match(r'^(hình|hinh|ảnh|anh|sơ\s*đồ|so\s*do|biểu\s*đồ|bieu\s*do|đồ\s*thị|do\s*thi)\s+\d+[\.:\-]?\s*', t_strip, re.IGNORECASE) or
+                t_strip.lower().startswith("(nguồn:") or t_strip.lower().startswith("nguồn:")) and len(t_strip.split()) <= 25 and not t_strip.endswith(":"):
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.first_line_indent = Mm(0)
+                p.paragraph_format.space_before = Pt(2)
+                p.paragraph_format.space_after = Pt(8)
+                r = p.add_run(t_strip)
+                format_run_font(r, size_pt=11.0, italic=True)
             # Tiêu đề lệnh (QUYẾT ĐỊNH:, QUYẾT NGHỊ:, THÔNG BÁO:) -> Căn giữa, in đậm
-            if t_strip.endswith(":") and any(k in t_strip.upper() for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
+            elif t_strip.endswith(":") and any(k in t_strip.upper() for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p.paragraph_format.first_line_indent = Mm(0)
                 p.paragraph_format.space_before = Pt(8)

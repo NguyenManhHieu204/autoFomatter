@@ -17,6 +17,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import docx
 from docx.shared import Pt, Mm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.text.paragraph import Paragraph
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
@@ -52,6 +53,7 @@ class FormattingReport:
     image_count: int = 0                 # Số lượng hình ảnh scan trong tài liệu
     safe_mode_activated: bool = False    # Chế độ bảo vệ hình ảnh đã được kích hoạt
     ocr_recommended: bool = False
+    images_formatted: int = 0
 
 
 def resolve_clean_output_path(input_path: str, target_ext: str = ".docx") -> str:
@@ -97,7 +99,8 @@ def resolve_clean_output_path(input_path: str, target_ext: str = ".docx") -> str
     is_scanned_image: bool = False       # Phát hiện tài liệu dạng ảnh scan
     image_count: int = 0                 # Số lượng hình ảnh scan trong tài liệu
     safe_mode_activated: bool = False    # Chế độ bảo vệ hình ảnh đã được kích hoạt
-    ocr_recommended: bool = False        # Khuyến nghị thực hiện OCR để lấy chữ
+    ocr_recommended: bool = False
+    images_formatted: int = 0        # Khuyến nghị thực hiện OCR để lấy chữ
 
 
 HEADING_PATTERNS = [
@@ -109,6 +112,56 @@ HEADING_PATTERNS = [
 
 
 from core.path_utils import get_config_dir
+
+
+def format_and_scale_images_in_paragraph(
+    p: Paragraph,
+    max_width_mm: float = 160.0,
+    max_height_mm: float = 220.0
+) -> int:
+    """
+    Căn chỉnh hình ảnh / khung vẽ (Drawings / Pictures / Shapes) chuẩn thể thức:
+    - Căn giữa trang in (Center Alignment)
+    - Xóa bỏ thụt đầu dòng (Zero First Line Indent)
+    - Thiết lập khoảng cách trước (6pt) và sau (4pt) cân đối
+    - Giãn dòng đơn 1.0 để Word không cắt/che khuất ảnh
+    - Tự động co giãn tỉ lệ (Proportional Scale) nếu kích thước vượt quá lề in A4 (tối đa 160mm x 220mm)
+    Trả về số lượng ảnh đã được co giãn/căn chỉnh trong đoạn.
+    """
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.first_line_indent = Mm(0)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.line_spacing = 1.0
+
+    MAX_W_EMU = int(max_width_mm * 36000)
+    MAX_H_EMU = int(max_height_mm * 36000)
+    scaled_count = 0
+
+    # Duyệt qua các drawing inline và anchor
+    for inline in p._element.xpath('.//*[local-name()="inline" or local-name()="anchor"]'):
+        extent = inline.find('{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}extent')
+        if extent is not None:
+            try:
+                cx = int(extent.attrib.get('cx', 0))
+                cy = int(extent.attrib.get('cy', 0))
+                if cx > MAX_W_EMU or cy > MAX_H_EMU:
+                    scale_w = MAX_W_EMU / cx if cx > MAX_W_EMU else 1.0
+                    scale_h = MAX_H_EMU / cy if cy > MAX_H_EMU else 1.0
+                    scale = min(scale_w, scale_h)
+                    new_cx = int(cx * scale)
+                    new_cy = int(cy * scale)
+                    extent.attrib['cx'] = str(new_cx)
+                    extent.attrib['cy'] = str(new_cy)
+
+                    # Đồng bộ sang a:xfrm/a:ext nếu có
+                    for a_ext in inline.xpath('.//*[local-name()="xfrm"]/*[local-name()="ext"]'):
+                        a_ext.attrib['cx'] = str(new_cx)
+                        a_ext.attrib['cy'] = str(new_cy)
+                    scaled_count += 1
+            except Exception:
+                pass
+    return scaled_count
 
 
 class FormatterEngine:
@@ -421,6 +474,7 @@ class FormatterEngine:
                 for idx in reversed(range(structure.header.raw_paragraphs_count)):
                     p = doc.paragraphs[idx]
                     if paragraph_has_drawings_or_images(p):
+                        format_and_scale_images_in_paragraph(p, max_width_mm=70.0)
                         continue
                     p._element.getparent().remove(p._element)
 
@@ -451,12 +505,66 @@ class FormatterEngine:
         space_after = Pt(typo["body_space_after_pt"])
         first_line_indent = Mm(typo["body_first_line_indent_mm"])
 
+        prev_was_image = False
         for p in doc.paragraphs:
             raw_text = p.text.strip()
             has_drawing = paragraph_has_drawings_or_images(p)
 
-            # Nếu đoạn văn chỉ có ảnh mà không có chữ, giữ nguyên tuyệt đối
+            # 1. Đoạn văn chứa hình ảnh: CĂN CHỈNH PHÙ HỢP CHUẨN THỂ THỨC (Căn giữa, không thụt lề, co vừa A4)
+            if has_drawing:
+                scaled_count = format_and_scale_images_in_paragraph(p)
+                report.images_formatted += 1
+                report.paragraphs_formatted += 1
+                prev_was_image = True
+
+                # Nếu đoạn có chứa chữ kèm ảnh (chú thích đi kèm ảnh trong cùng paragraph)
+                if raw_text:
+                    for run in p.runs:
+                        if not run_has_drawings_or_images(run) and run.text:
+                            r_clean, _ = self.linter.clean_whitespace(run.text)
+                            run.text = r_clean
+                            format_run(run, font_name=font_name, size_pt=11.0, italic=True)
+
+                report.all_issues.append(LintIssue(
+                    issue_type="image_alignment",
+                    original="[Hình ảnh trong văn bản]",
+                    replacement="[Căn giữa & Tối ưu lề in A4]",
+                    message="Căn chỉnh hình ảnh chuẩn thể thức: Căn giữa trang in, loại bỏ thụt lề đầu dòng, giãn cách 6pt/4pt" +
+                            (" và tự động co nhỏ vừa khổ in A4" if scaled_count > 0 else ""),
+                    severity="auto_fixed"
+                ))
+                continue
+
+            # Nếu đoạn văn trống không có chữ và không có ảnh:
             if not raw_text:
+                prev_was_image = False
+                continue
+
+            # 2. Kiểm tra nếu đoạn văn là Dòng chú thích ảnh (Caption ngay dưới ảnh hoặc có tiền tố Hình/Sơ đồ/Ảnh/Nguồn)
+            is_caption = (
+                prev_was_image or
+                bool(re.match(r'^(hình|hinh|ảnh|anh|sơ\s*đồ|so\s*do|biểu\s*đồ|bieu\s*do|đồ\s*thị|do\s*thi)\s+\d+[\.:\-]?\s*', raw_text, re.IGNORECASE)) or
+                raw_text.lower().startswith("(nguồn:") or raw_text.lower().startswith("nguồn:")
+            )
+            prev_was_image = False
+
+            if is_caption and len(raw_text.split()) <= 25 and not raw_text.endswith(":"):
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.first_line_indent = Mm(0)
+                p.paragraph_format.space_before = Pt(2)
+                p.paragraph_format.space_after = Pt(8)
+                p.paragraph_format.line_spacing = 1.15
+                for run in p.runs:
+                    if not run_has_drawings_or_images(run):
+                        format_run(run, font_name=font_name, size_pt=11.0, italic=True)
+                report.paragraphs_formatted += 1
+                report.all_issues.append(LintIssue(
+                    issue_type="caption_alignment",
+                    original=raw_text[:25] + ("..." if len(raw_text) > 25 else ""),
+                    replacement="[Căn giữa in nghiêng 11pt]",
+                    message="Chuẩn hóa chú thích hình ảnh / sơ đồ: Căn giữa trang in, in nghiêng 11pt theo quy định NĐ 30",
+                    severity="auto_fixed"
+                ))
                 continue
 
             # Phục hồi lỗi OCR và chuẩn hóa văn phong hành chính

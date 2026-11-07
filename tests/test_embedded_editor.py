@@ -857,6 +857,59 @@ class TestEmbeddedEditor(unittest.TestCase):
 
         canvas.close()
 
+    def test_editor_preserves_images_on_load_and_save(self):
+        """Kiểm tra trình soạn thảo tích hợp (Embedded Editor):
+        - Mở file DOCX có hình ảnh: Không bị xóa hay mất ảnh, hiển thị trọn vẹn trên Canvas
+        - Lưu lại file DOCX từ trình soạn thảo: Hình ảnh được nhúng lại đầy đủ vào OpenXML
+        """
+        import io
+        from PIL import Image
+        from PyQt6.QtWidgets import QApplication
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from core.doc_parser import paragraph_has_drawings_or_images
+        app = QApplication.instance() or QApplication(sys.argv)
+        from ui.editor.word_editor_window import WordEditorWindow
+
+        # 1. Tạo file DOCX có hình ảnh
+        img = Image.new("RGB", (300, 150), color="green")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        test_doc_path = os.path.join(self.temp_dir, "test_doc_with_image.docx")
+        doc = docx.Document()
+        doc.add_paragraph("ỦY BAN NHÂN DÂN HUYỆN")
+        doc.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        doc.add_paragraph("BÁO CÁO")
+        doc.add_paragraph("Đoạn văn mở đầu trước hình ảnh.")
+        
+        p_img = doc.add_paragraph()
+        p_img.add_run().add_picture(buf, width=Mm(100))
+
+        doc.add_paragraph("Hình 1: Bản đồ hành chính địa phương")
+        doc.add_paragraph("Đoạn văn kết thúc sau hình ảnh.")
+        doc.save(test_doc_path)
+
+        # 2. Mở bằng Trình soạn thảo tích hợp
+        win = WordEditorWindow(None, current_file_path=test_doc_path)
+        
+        # Kiểm tra hình ảnh đã được trích xuất vào Canvas HTML
+        html = win.canvas.body_editor.toHtml()
+        self.assertIn("<img", html, "Trình soạn thảo phải nạp và hiển thị hình ảnh từ file Word, không được bỏ sót!")
+
+        # 3. Đóng gói lại thành DOCX
+        saved_doc = win._build_docx_object()
+        saved_doc_path = os.path.join(self.temp_dir, "test_doc_saved_with_image.docx")
+        saved_doc.save(saved_doc_path)
+
+        # 4. Đọc lại DOCX đã lưu và kiểm tra
+        reloaded = docx.Document(saved_doc_path)
+        img_paras = [p for p in reloaded.paragraphs if paragraph_has_drawings_or_images(p)]
+        self.assertGreaterEqual(len(img_paras), 1, "Hình ảnh phải được lưu lại trọn vẹn trong file DOCX!")
+        self.assertEqual(img_paras[0].alignment, WD_ALIGN_PARAGRAPH.CENTER)
+
+        win.close()
+
 
 if __name__ == "__main__":
     unittest.main()

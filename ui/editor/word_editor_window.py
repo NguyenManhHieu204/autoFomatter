@@ -504,7 +504,8 @@ class WordEditorWindow(QMainWindow):
             import docx
             import html
             import re
-            from core.doc_parser import DocParser
+            import base64
+            from core.doc_parser import DocParser, paragraph_has_drawings_or_images
 
             parser = DocParser(file_path)
             st = parser.parse()
@@ -564,44 +565,70 @@ class WordEditorWindow(QMainWindow):
                     excluded.update(st.footer_para_indices)
                 body_indices = [i for i in range(len(doc.paragraphs)) if i not in excluded]
 
-            # 3. Chuyển đổi các đoạn văn thân bài sang HTML có định dạng (đậm, nghiêng, thụt lề chuẩn NĐ 30)
+            # 3. Chuyển đổi các đoạn văn thân bài sang HTML có định dạng (đậm, nghiêng, thụt lề chuẩn NĐ 30, bảo toàn hình ảnh)
             html_parts = []
             for i in sorted(body_indices):
                 if i < 0 or i >= len(doc.paragraphs):
                     continue
                 p = doc.paragraphs[i]
                 txt = p.text.strip()
-                if not txt:
+                has_drawing = paragraph_has_drawings_or_images(p)
+                if not txt and not has_drawing:
                     continue
 
-                # Tạo HTML từ các runs để giữ nguyên in đậm / in nghiêng
-                run_htmls = []
-                for r in p.runs:
-                    r_text = r.text
-                    if not r_text:
-                        continue
-                    esc = html.escape(r_text)
-                    if r.bold:
-                        esc = f"<b>{esc}</b>"
-                    if r.italic:
-                        esc = f"<i>{esc}</i>"
-                    if r.underline:
-                        esc = f"<u>{esc}</u>"
-                    run_htmls.append(esc)
-                inner = "".join(run_htmls) if run_htmls else html.escape(txt)
+                # A. Trích xuất hình ảnh nguyên vẹn từ paragraph
+                if has_drawing:
+                    blips = p._element.xpath('.//*[local-name()="blip"]')
+                    for b in blips:
+                        embed_id = b.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                        if not embed_id:
+                            embed_id = b.attrib.get('r:embed')
+                        if embed_id and embed_id in doc.part.related_parts:
+                            part = doc.part.related_parts[embed_id]
+                            if hasattr(part, 'blob'):
+                                b64_img = base64.b64encode(part.blob).decode('ascii')
+                                mime = getattr(part, 'content_type', 'image/png')
+                                html_parts.append(
+                                    f'<p align="center" style="text-align: center; text-indent: 0px; margin: 10px 0;">'
+                                    f'<img src="data:{mime};base64,{b64_img}" style="max-width: 100%; height: auto;" />'
+                                    f'</p>'
+                                )
 
-                # Căn lề chuẩn NĐ 30 cho thân bài
-                u_txt = txt.upper()
-                if txt.endswith(":") and any(k in u_txt for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
-                    html_parts.append(f"<p style='text-align: center; font-weight: bold; margin: 10px 0;'>{inner}</p>")
-                elif txt.lower().startswith("kính gửi"):
-                    html_parts.append(f"<p style='text-align: left; text-indent: 0px; margin: 6px 0;'>{inner}</p>")
-                elif re.match(r'^[-–—•*]?\s*(căn\s+cứ|theo\s+đề\s+nghị)\b', txt, re.IGNORECASE):
-                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-style: italic; margin: 4px 0;'>{inner}</p>")
-                elif re.match(r'^(điều|dieu)\s+\d+', txt, re.IGNORECASE) or re.match(r'^[IVXLCDM]+\.\s+', txt):
-                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-weight: bold; margin: 6px 0;'>{inner}</p>")
-                else:
-                    html_parts.append(f"<p style='text-align: justify; text-indent: 36px; margin: 4px 0;'>{inner}</p>")
+                # B. Tạo HTML từ các runs text để giữ nguyên in đậm / in nghiêng
+                if txt:
+                    run_htmls = []
+                    for r in p.runs:
+                        r_text = r.text
+                        if not r_text:
+                            continue
+                        esc = html.escape(r_text)
+                        if r.bold:
+                            esc = f"<b>{esc}</b>"
+                        if r.italic:
+                            esc = f"<i>{esc}</i>"
+                        if r.underline:
+                            esc = f"<u>{esc}</u>"
+                        run_htmls.append(esc)
+                    inner = "".join(run_htmls) if run_htmls else html.escape(txt)
+
+                    # Căn lề chuẩn NĐ 30 cho thân bài
+                    u_txt = txt.upper()
+                    if has_drawing:
+                        # Chú thích đi kèm ảnh trong cùng đoạn
+                        html_parts.append(f"<p style='text-align: center; text-indent: 0px; font-style: italic; font-size: 11pt; margin: 4px 0;'>{inner}</p>")
+                    elif txt.endswith(":") and any(k in u_txt for k in ["QUYẾT ĐỊNH", "QUYẾT NGHỊ", "THÔNG BÁO"]):
+                        html_parts.append(f"<p style='text-align: center; font-weight: bold; margin: 10px 0;'>{inner}</p>")
+                    elif txt.lower().startswith("kính gửi"):
+                        html_parts.append(f"<p style='text-align: left; text-indent: 0px; margin: 6px 0;'>{inner}</p>")
+                    elif re.match(r'^[-–—•*]?\s*(căn\s+cứ|theo\s+đề\s+nghị)\b', txt, re.IGNORECASE):
+                        html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-style: italic; margin: 4px 0;'>{inner}</p>")
+                    elif re.match(r'^(điều|dieu)\s+\d+', txt, re.IGNORECASE) or re.match(r'^[IVXLCDM]+\.\s+', txt):
+                        html_parts.append(f"<p style='text-align: justify; text-indent: 36px; font-weight: bold; margin: 6px 0;'>{inner}</p>")
+                    elif re.match(r'^(hình|hinh|ảnh|anh|sơ\s*đồ|so\s*do|biểu\s*đồ|bieu\s*do|đồ\s*thị|do\s*thi)\s+\d+[\.:\-]?\s*', txt, re.IGNORECASE) or txt.lower().startswith("(nguồn:") or txt.lower().startswith("nguồn:"):
+                        # Dòng chú thích hình ảnh: Căn giữa, in nghiêng 11pt, không thụt đầu dòng
+                        html_parts.append(f"<p style='text-align: center; text-indent: 0px; font-style: italic; font-size: 11pt; margin: 4px 0;'>{inner}</p>")
+                    else:
+                        html_parts.append(f"<p style='text-align: justify; text-indent: 36px; margin: 4px 0;'>{inner}</p>")
 
             # 4. Kiểm tra các bảng trong thân bài (bỏ qua bảng Header đầu và bảng Footer cuối)
             if doc.tables:
@@ -614,7 +641,24 @@ class WordEditorWindow(QMainWindow):
                     for row in tbl.rows:
                         tbl_html.append("<tr>")
                         for cell in row.cells:
-                            c_text = "<br/>".join(html.escape(cp.text.strip()) for cp in cell.paragraphs if cp.text.strip())
+                            cell_fragments = []
+                            for cp in cell.paragraphs:
+                                # Kiểm tra hình ảnh trong ô bảng
+                                if paragraph_has_drawings_or_images(cp):
+                                    blips = cp._element.xpath('.//*[local-name()="blip"]')
+                                    for b in blips:
+                                        embed_id = b.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                        if not embed_id:
+                                            embed_id = b.attrib.get('r:embed')
+                                        if embed_id and embed_id in doc.part.related_parts:
+                                            part = doc.part.related_parts[embed_id]
+                                            if hasattr(part, 'blob'):
+                                                b64_img = base64.b64encode(part.blob).decode('ascii')
+                                                mime = getattr(part, 'content_type', 'image/png')
+                                                cell_fragments.append(f'<img src="data:{mime};base64,{b64_img}" style="max-width: 100%; height: auto;" />')
+                                if cp.text.strip():
+                                    cell_fragments.append(html.escape(cp.text.strip()))
+                            c_text = "<br/>".join(cell_fragments)
                             tbl_html.append(f"<td style='border: 1px solid #000000; padding: 4px;'>{c_text}</td>")
                         tbl_html.append("</tr>")
                     tbl_html.append("</table>")
@@ -631,9 +675,22 @@ class WordEditorWindow(QMainWindow):
                 doc = docx.Document(file_path)
                 html_parts = []
                 for p in doc.paragraphs:
+                    has_drawing = paragraph_has_drawings_or_images(p)
                     txt = p.text.strip()
+                    if has_drawing:
+                        blips = p._element.xpath('.//*[local-name()="blip"]')
+                        for b in blips:
+                            embed_id = b.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                            if not embed_id:
+                                embed_id = b.attrib.get('r:embed')
+                            if embed_id and embed_id in doc.part.related_parts:
+                                part = doc.part.related_parts[embed_id]
+                                if hasattr(part, 'blob'):
+                                    b64_img = base64.b64encode(part.blob).decode('ascii')
+                                    mime = getattr(part, 'content_type', 'image/png')
+                                    html_parts.append(f'<p align="center" style="text-align: center; text-indent: 0px; margin: 10px 0;"><img src="data:{mime};base64,{b64_img}" style="max-width: 100%; height: auto;" /></p>')
                     if txt:
-                        html_parts.append(f"<p style='text-indent: 36px; margin: 4px 0;'>{txt}</p>")
+                        html_parts.append(f"<p style='text-indent: 36px; margin: 4px 0;'>{html.escape(txt)}</p>")
                 if html_parts:
                     self.canvas.body_editor.setHtml("".join(html_parts))
             except Exception:
