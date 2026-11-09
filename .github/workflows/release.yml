@@ -1,0 +1,64 @@
+name: Build & Release Auto-Formatter
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Windows Binary & Create Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build standalone executable with PyInstaller
+        run: |
+          pyinstaller --clean -y build_exe.spec
+
+      - name: Compress distribution to ZIP & generate SHA256
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag -or $tag -notmatch '^v\d+') {
+              $tag = "v2.0.0"
+          }
+          $zipName = "AutoFormatter_${tag}.zip"
+          Write-Host "Packing dist\AutoFormatter into dist\$zipName..."
+          Compress-Archive -Path "dist\AutoFormatter\*" -DestinationPath "dist\$zipName" -CompressionLevel Optimal
+          
+          $hash = (Get-FileHash -Algorithm SHA256 "dist\$zipName").Hash
+          "$hash  $zipName" | Out-File -Encoding ascii "dist\${zipName}.sha256"
+          Write-Host "Generated SHA256: $hash"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/AutoFormatter_*.zip
+            dist/AutoFormatter_*.zip.sha256
+          name: "Auto-Formatter ${{ github.ref_name }}"
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

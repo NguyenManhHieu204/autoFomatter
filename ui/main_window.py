@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QProgressBar, QGroupBox, QFrame, QMessageBox, QSplitter,
     QAbstractScrollArea, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QSize
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QSize, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QFont, QColor, QPixmap, QAction
 
 from core.formatter_engine import FormatterEngine, FormattingReport
@@ -244,6 +244,7 @@ class MainWindow(QMainWindow):
         self._load_profiles_data()
         self._init_ui()
         self._refresh_profiles_dropdown()
+        QTimer.singleShot(3500, self._check_for_updates_silent)
 
     def _load_profiles_data(self):
         p_path = os.path.join(self.config_dir, "agency_profiles.json")
@@ -347,6 +348,9 @@ class MainWindow(QMainWindow):
         act_about = menu_help.addAction("Thông tin phiên bản Auto-Formatter")
         act_about.triggered.connect(self._show_about_dialog)
 
+        act_update = menu_help.addAction("Kiểm tra bản cập nhật...")
+        act_update.triggered.connect(self._check_for_updates_manual)
+
     def _show_about_dialog(self):
         """Hiển thị hộp thoại giới thiệu phiên bản 2.0 Thương Mại"""
         QMessageBox.about(
@@ -364,6 +368,50 @@ class MainWindow(QMainWindow):
             "</ul>"
             "<p><i>Bản quyền © 2026 Auto-Formatter Team. Hoạt động ngoại tuyến 100% (Air-gapped) bảo mật dữ liệu tuyệt đối.</i></p>"
         )
+
+    def _check_for_updates_manual(self):
+        """Kiểm tra bản cập nhật mới từ GitHub theo yêu cầu người dùng."""
+        from core.updater import CheckUpdateThread, APP_VERSION
+        from ui.update_dialog import UpdateDialog
+
+        self._update_checker_thread = CheckUpdateThread()
+
+        def on_result(info: dict):
+            if not info.get("success"):
+                QMessageBox.warning(
+                    self,
+                    "Kiểm tra cập nhật",
+                    info.get("error", "Không thể kết nối đến máy chủ GitHub để kiểm tra cập nhật.")
+                )
+                return
+
+            if info.get("has_update"):
+                dlg = UpdateDialog(self, update_info=info)
+                dlg.exec()
+            else:
+                QMessageBox.information(
+                    self,
+                    "Kiểm tra cập nhật",
+                    f"Bạn đang sử dụng phiên bản mới nhất: v{APP_VERSION}."
+                )
+
+        self._update_checker_thread.result_ready.connect(on_result)
+        self._update_checker_thread.start()
+
+    def _check_for_updates_silent(self):
+        """Kiểm tra cập nhật chạy ngầm khi mở ứng dụng (chỉ hiện thông báo khi có bản mới)."""
+        from core.updater import CheckUpdateThread
+        from ui.update_dialog import UpdateDialog
+
+        self._silent_update_thread = CheckUpdateThread()
+
+        def on_silent_result(info: dict):
+            if info.get("success") and info.get("has_update"):
+                dlg = UpdateDialog(self, update_info=info)
+                dlg.exec()
+
+        self._silent_update_thread.result_ready.connect(on_silent_result)
+        self._silent_update_thread.start()
 
     def _init_ui(self):
         self._setup_menu_bar()

@@ -188,6 +188,23 @@ pyinstaller build_exe.spec --noconfirm
 ```
 Sản phẩm đóng gói hoàn tất sẽ nằm tại thư mục `dist/AutoFormatter/`. Để tạo bộ cài đặt setup `.exe`, mở tệp [`installer.iss`](file:///d:/AutoFormatter/installer.iss) bằng phần mềm **Inno Setup Compiler** và nhấn **Compile (F9)**.
 
+### 5.5. Quy trình Phát hành & Cập nhật Tự động (GitHub Releases & Auto-Updater)
+Hệ thống tích hợp quy trình phát hành tự động qua **GitHub Actions** (`.github/workflows/release.yml`) và cơ chế tự động cập nhật ngầm:
+
+1. **Dành cho Người dùng cuối:**
+   - **Tự động kiểm tra:** Ứng dụng tự động kiểm tra phiên bản mới ngầm khi khởi động.
+   - **Kiểm tra thủ công:** Vào bảng chọn **Trợ giúp -> Kiểm tra bản cập nhật...**.
+   - **Nâng cấp 1 chạm:** Nhấn **"Tải & Cập nhật tự động"**, phần mềm tự tải tệp zip từ GitHub, cập nhật đè thư mục cài đặt và khởi động lại phiên bản mới tức thì.
+
+2. **Dành cho Nhà phát triển phát hành phiên bản mới:**
+   - Cập nhật số phiên bản `APP_VERSION` tại `core/updater.py`.
+   - Tạo và đẩy thẻ phát hành (Git Tag) lên GitHub:
+     ```bash
+     git tag -a v2.0.1 -m "Mô tả tính năng phát hành v2.0.1"
+     git push origin v2.0.1
+     ```
+   - GitHub Actions sẽ tự động khởi tạo máy ảo Windows, cài đặt môi trường, biên dịch, đóng gói zip, tính mã băm SHA-256 và công bố Release trên GitHub để người dùng tải xuống hoặc tự động cập nhật!
+
 ---
 
 ## 6. DANH MỤC CẤU TRÚC THƯ MỤC MÃ NGUỒN
