@@ -55,13 +55,15 @@ def check_for_updates(repo: str = GITHUB_REPO, current_version: str = APP_VERSIO
             - error: str (nếu có lỗi)
     """
     url = f"https://api.github.com/repos/{repo}/releases/latest"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/vnd.github.v3+json"
-        }
-    )
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/vnd.github.v3+json"
+    }
+    token = os.environ.get("AUTOFORMATTER_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    req = urllib.request.Request(url, headers=headers)
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as response:
@@ -152,7 +154,11 @@ class DownloadUpdateThread(QThread):
 
     def run(self):
         try:
-            req = urllib.request.Request(self.download_url, headers={"User-Agent": USER_AGENT})
+            headers = {"User-Agent": USER_AGENT}
+            token = os.environ.get("AUTOFORMATTER_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            req = urllib.request.Request(self.download_url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as resp:
                 total_size = int(resp.headers.get("content-length", 0))
                 filename = os.path.basename(self.download_url.split("?")[0]) or "update.zip"
