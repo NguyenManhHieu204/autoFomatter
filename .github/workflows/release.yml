@@ -34,7 +34,7 @@ jobs:
         run: |
           pyinstaller --clean -y build_exe.spec
 
-      - name: Compress distribution to ZIP & generate SHA256
+      - name: Compress distribution to ZIP
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
@@ -44,10 +44,6 @@ jobs:
           $zipName = "AutoFormatter_${tag}.zip"
           Write-Host "Packing dist\AutoFormatter into dist\$zipName..."
           Compress-Archive -Path "dist\AutoFormatter\*" -DestinationPath "dist\$zipName" -CompressionLevel Optimal
-          
-          $hash = (Get-FileHash -Algorithm SHA256 "dist\$zipName").Hash
-          "$hash  $zipName" | Out-File -Encoding ascii "dist\${zipName}.sha256"
-          Write-Host "Generated SHA256: $hash"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -55,7 +51,6 @@ jobs:
         with:
           files: |
             dist/AutoFormatter_*.zip
-            dist/AutoFormatter_*.zip.sha256
           name: "Auto-Formatter ${{ github.ref_name }}"
           generate_release_notes: true
           draft: false
