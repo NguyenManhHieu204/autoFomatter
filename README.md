@@ -68,20 +68,24 @@ Dành cho tình huống tiếp nhận các tệp văn bản Word hoặc PDF scan
 ---
 
 ### 4.2. Trình Soạn thảo Hành chính WYSIWYG Nhúng Toàn diện (Word Editor)
-Phiên bản 1.2 tích hợp trực tiếp một Trình Soạn thảo Hành chính hoàn chỉnh bên trong ứng dụng:
+Phiên bản 2.0 tích hợp trực tiếp một Trình Soạn thảo Hành chính hoàn chỉnh bên trong ứng dụng:
 
 1. **Khởi chạy trình soạn thảo:**
    - Bấm nút **Soạn thảo tích hợp** trên thanh công cụ sau khi chọn tệp, hoặc nhấn **Ctrl+N** để tạo văn bản mới.
+   - Nút **Undo / Redo** nhanh đặt ngay trên thanh công cụ; cho phép **đổi tên tệp trực tiếp** bằng cách nhấp chuột vào tên tệp trên thanh tiêu đề.
 2. **Khung vẽ A4 rời rạc (Discrete Multi-page Canvas):**
    - Không bị cuộn dài vô tận: Văn bản được kết xuất thành các tờ giấy trắng A4 rời rạc (210 x 297 mm) với bóng đổ thực tế và ranh giới lề in chuẩn xác.
    - Nhấn **Ctrl + Enter** tại bất kỳ vị trí nào để ngắt sang trang A4 kế tiếp chuẩn xác.
 3. **Độc lập định hướng khổ giấy (Independent Orientation):**
    - **Trang 1:** Luôn khóa cố định khổ dọc (Portrait) theo quy chuẩn NĐ 30 & HD 36 để đảm bảo tính trang nghiêm của Quốc hiệu và Cơ quan ban hành.
    - **Từ trang 2 trở đi:** Tùy chọn độc lập xoay ngang (Landscape 297 x 210 mm) dành riêng cho các trang biểu mẫu, phụ lục, danh sách hoặc bảng biểu nhiều cột mà **hoàn toàn không làm ảnh hưởng đến khổ dọc của trang 1**.
-4. **Dải băng điều khiển (Administrative Ribbon):**
-   - Tab **Soạn thảo:** Phông chữ chuẩn Times New Roman Unicode, cỡ chữ 13–14 pt, căn đều hai lề (Justify), giãn dòng 1.2 lines, giãn đoạn 6 pt, thụt lề đầu dòng chuẩn 1.27 cm (1 Tab).
+4. **Bảo toàn 100% Hình ảnh & Đồ họa (Zero Image Loss):**
+   - Mọi hình ảnh, biểu đồ, sơ đồ trong tệp Word được bảo toàn nguyên vẹn, tự động căn giữa trang, triệt tiêu thụt lề đầu dòng, tự co giãn theo vùng in khổ A4 (không bị tràn mép giấy).
+   - Tự động nhận diện và định dạng các dòng chú thích hình ảnh (11pt in nghiêng, căn giữa).
+5. **Dải băng điều khiển (Administrative Ribbon):**
+   - Tab **Soạn thảo:** Phông chữ chuẩn Times New Roman Unicode, cỡ chữ 13–14 pt, căn đều hai lề (Justify), giãn dòng 1.2 lines, giãn đoạn 6 pt, thụt lề đầu dòng chuẩn 1.27 cm (1 Tab). Đánh số tự động thông minh (tiếp nối số thứ tự, đánh số phân cấp La Mã, chữ cái, thập phân).
    - Tab **Bố cục & Lề in:** Thiết lập lề trái 30 mm (đóng gáy), lề phải 15 mm, trên/dưới 20 mm; hiển thị thước đo milimét (Horizontal Ruler).
-   - Tab **Bảng biểu:** Quản lý hàng/cột, gộp ô, tách ô, tự động căn giữa bảng và bảo vệ bảng không bị ngắt đôi qua trang.
+   - Tab **Bảng biểu:** Quản lý hàng/cột, gộp ô, tách ô, tự động căn giữa bảng, bảo vệ bảng không bị ngắt đôi qua trang (`cantSplit`) và lặp lại dòng tiêu đề trên từng trang (`tblHeader`).
    - Nút **Sửa thông tin thể thức:** Mở hộp thoại siêu dữ liệu để cập nhật nhanh Cơ quan ban hành, Quốc hiệu, Số hiệu, Trích yếu, Thẩm quyền ký và Nơi nhận.
 
 ---
@@ -158,7 +162,7 @@ python main.py
 ```
 
 ### 5.2. Chạy Bộ Kiểm thử Tự động (Automated Test Suite)
-Chạy toàn bộ 50 kịch bản kiểm thử tự động để bảo đảm tính toàn vẹn của hệ thống:
+Chạy toàn bộ 68 kịch bản kiểm thử tự động để bảo đảm tính toàn vẹn của hệ thống:
 ```bash
 python -m unittest discover tests
 ```
@@ -228,10 +232,10 @@ AutoFormatter/
 │       └── document_ruler.py       # Thước căn lề milimét tương tác
 ├── templates/                      # Tệp Word mẫu chuẩn cho Đảng và Nhà nước
 ├── assets/                         # Biểu tượng và tài nguyên đồ họa High-DPI
-├── tests/                          # Bộ 50 kịch bản kiểm thử tự động
+├── tests/                          # Bộ 68 kịch bản kiểm thử tự động
 └── dist/                           # Sản phẩm xuất xưởng sẵn sàng phân phối
     ├── AutoFormatter/              # Thư mục ứng dụng Portable Onedir (< 1s mở)
-    └── AutoFormatter_v1.0.zip      # Gói nén di động phân phối
+    └── AutoFormatter_v2.0.zip      # Gói nén di động phân phối (~125 MB)
 ```
 
 ---
