@@ -1,6 +1,6 @@
 # TÀI LIỆU ĐẶC TẢ KỸ THUẬT HỆ THỐNG (TECHNICAL SPECIFICATION)
 ## CÔNG CỤ TỰ ĐỘNG CHUẨN HÓA THỂ THỨC VĂN BẢN ĐẢNG & HÀNH CHÍNH
-### Auto-Formatter — Version 2.0 Commercial Edition
+### Auto-Formatter — Version 2.0
 **Tiêu chuẩn áp dụng:** Nghị định số 30/2020/NĐ-CP & Hướng dẫn số 36-HD/VPTW  
 **Kiến trúc:** Desktop Application (PyQt6 + OpenXML + ONNX + Windows CryptoAPI)  
 **Môi trường:** Windows 10/11 x64 • Hoạt động Ngoại tuyến 100% (Air-gapped Zero-Cloud)  
@@ -23,7 +23,7 @@
 5. [CẤU TRÚC DỮ LIỆU & TỪ ĐIỂN QUY TẮC](#v-cấu-trúc-dữ-liệu--từ-điển-quy-tắc)
 6. [MÔ HÌNH BẢO MẬT & ĐỘC LẬP TÁC CHIẾN (SECURITY MODEL)](#vi-mô-hình-bảo-mật--độc-lập-tác-chiến-security-model)
 7. [BỘ KIỂM THỬ TỰ ĐỘNG & ĐẢM BẢO CHẤT LƯỢNG (QA & TEST SUITE)](#vii-bộ-kiểm-thử-tự-động--đảm-bảo-chất-lượng-qa--test-suite)
-8. [QUY TRÌNH ĐÓNG GÓI, TRIỂN KHAI & PHÂN PHỐI THƯƠNG MẠI](#viii-quy-trình-đóng-gói-triển-khai--phân-phối-thương-mại)
+8. [QUY TRÌNH ĐÓNG GÓI, TRIỂN KHAI & PHÂN PHỐI](#viii-quy-trình-đóng-gói-triển-khai--phân-phối-thương-mại)
 9. [ĐÁNH GIÁ TRẠNG THÁI DỰ ÁN & ĐỊNH HƯỚNG PHÁT TRIỂN](#ix-đánh-giá-trạng-thái-dự-án--định-hướng-phát-triển)
 
 ---
@@ -38,7 +38,7 @@ Trong các cơ quan của Đảng Cộng sản Việt Nam, Nhà nước, Mặt t
 * **Rủi ro rò rỉ thông tin mật**: Việc sử dụng các công cụ trực tuyến (Cloud SaaS / AI Web) tiềm ẩn nguy cơ lộ lọt bí mật nhà nước và dữ liệu nội bộ cơ quan.
 * **Nút thắt ký số điện tử**: Thiếu công cụ ký số trực quan trên tệp PDF đáp ứng chuẩn Điều 13 Nghị định 30/2020/NĐ-CP (vị trí dấu đỏ trùm 1/3 chữ ký, tương thích với thiết bị phần cứng USB Token của Ban Cơ yếu Chính phủ).
 
-**Auto-Formatter v2.0 Commercial Edition** được thiết kế như một giải pháp phần mềm độc lập hoàn chỉnh, cung cấp trọn vẹn chu trình: **Nhận dạng scan (OCR) -> Chuẩn hóa thể thức tự động -> Soạn thảo trực quan WYSIWYG A4 -> Rà soát lỗi pháp lý -> Ký số điện tử chuẩn hóa -> Xuất bản tài liệu sẵn sàng phát hành**.
+**Auto-Formatter v2.0** được thiết kế như một giải pháp phần mềm độc lập hoàn chỉnh, cung cấp trọn vẹn chu trình: **Nhận dạng scan (OCR) -> Chuẩn hóa thể thức tự động -> Soạn thảo trực quan WYSIWYG A4 -> Rà soát lỗi pháp lý -> Ký số điện tử chuẩn hóa -> Xuất bản tài liệu sẵn sàng phát hành**.
 
 ### 2. Nguyên tắc Thiết kế Cốt lõi (Design Tenets)
 1. **Tuân thủ pháp lý 100%**: Tuyệt đối trung thực với Nghị định 30/2020/NĐ-CP và Hướng dẫn 36-HD/VPTW.
@@ -107,7 +107,7 @@ flowchart TD
         HybridSign["Hybrid Signing Engine<br/>• Kênh 1: USB Token CAPI (SHA256-RSA)<br/>• Kênh 2: VGCA SignTool Bridge"]
     end
 
-    subgraph OUTPUT ["6. XUẤT BẢN THƯƠNG MẠI"]
+    subgraph OUTPUT ["6. XUẤT BẢN"]
         DocxOut["File Word Chuẩn hóa (.docx)"]
         PdfOut["File PDF Chuẩn in ấn (PDF/A)"]
         SignedPdf["File PDF Ký số Tích xanh Hợp lệ"]
@@ -311,7 +311,7 @@ Hệ thống được bảo vệ bởi bộ kiểm thử tự động gồm **68
 
 ---
 
-## VIII. QUY TRÌNH ĐÓNG GÓI, TRIỂN KHAI & PHÂN PHỐI THƯƠNG MẠI
+## VIII. QUY TRÌNH ĐÓNG GÓI, TRIỂN KHAI & PHÂN PHỐI
 
 ### 1. Cấu hình Biên dịch PyInstaller Tối ưu
 * Sử dụng tệp cấu hình độc quyền [`build_exe.spec`](file:///d:/AutoFormatter/build_exe.spec).
@@ -331,7 +331,7 @@ Hệ thống được bảo vệ bởi bộ kiểm thử tự động gồm **68
 * **Tính toàn vẹn chức năng**: Đạt **100%** yêu cầu thể thức văn bản Đảng & Nhà nước.
 * **Bảo toàn nội dung & tài nguyên**: Đạt **100%** (chữ nghĩa, bảng biểu, số liệu, hình ảnh, sơ đồ đều được giữ nguyên vẹn).
 * **Độ ổn định mã nguồn**: Đạt mức **Production-Ready** (toàn bộ 68/68 test case tự động vượt qua).
-* **Mức độ sẵn sàng thương mại**: Sẵn sàng đóng gói thương mại, bàn giao và triển khai diện rộng tại các cơ quan, đơn vị.
+* **Mức độ sẵn sàng**: Sẵn sàng đóng gói thương mại, bàn giao và triển khai diện rộng tại các cơ quan, đơn vị.
 
 ### 2. Lộ trình Nâng cấp Phiên bản Tiếp theo (Roadmap v2.1+)
 * **Hỗ trợ Đa màn hình High-DPI 4K**: Tự động nhận diện DPI đa màn hình để tối ưu thước đo milimét.

@@ -352,11 +352,11 @@ class MainWindow(QMainWindow):
         act_update.triggered.connect(self._check_for_updates_manual)
 
     def _show_about_dialog(self):
-        """Hiển thị hộp thoại giới thiệu phiên bản 2.0 Thương Mại"""
+        """Hiển thị hộp thoại giới thiệu phiên bản 2.0"""
         QMessageBox.about(
             self,
             "Về Auto-Formatter v2.0",
-            "<h3>Auto-Formatter v2.0 — Soạn Thảo & Chuẩn Hóa Thể Thức Văn Bản (Bản Thương Mại)</h3>"
+            "<h3>Auto-Formatter v2.0 — Soạn Thảo & Chuẩn Hóa Thể Thức Văn Bản</h3>"
             "<p><b>Giải pháp chuẩn hóa thể thức và ký số văn bản điện tử chuyên nghiệp:</b></p>"
             "<ul>"
             "<li><b>Khóa cứng Thể thức (Layout Guard):</b> Tự động bảo vệ Quốc hiệu, Tiêu ngữ, Tên cơ quan, Khối ký tên theo NĐ 30/2020 và HD 36-HD/VPTW.</li>"

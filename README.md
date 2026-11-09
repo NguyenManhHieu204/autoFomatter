@@ -1,5 +1,5 @@
 # CÔNG CỤ TỰ ĐỘNG CHUẨN HÓA THỂ THỨC VĂN BẢN ĐẢNG & HÀNH CHÍNH (AUTO-FORMATTER)
-**Phiên bản:** 2.0 (Bản Thương Mại / Commercial Edition)  
+**Phiên bản:** 2.0  
 **Môi trường triển khai:** Ứng dụng Desktop chạy Ngoại tuyến hoàn toàn (Offline 100% / Air-gapped) trên hệ điều hành Windows.  
 **Cơ chế vận hành:** Tải về là chạy ngay (Portable / Zero-Install), không yêu cầu cài đặt phần mềm phụ trợ, không cần kết nối Internet.
 
