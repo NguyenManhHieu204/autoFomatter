@@ -182,7 +182,7 @@ class ProfileDialog(QDialog):
         self.cb_standard.setCurrentIndex(0)
         self.txt_superior.clear()
         self.txt_issuing.clear()
-        self.txt_location.setText("Hà Nội")
+        self.txt_location.clear()
         self.txt_symbol.clear()
         self.txt_auth.clear()
         self.txt_pos.clear()

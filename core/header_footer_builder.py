@@ -119,6 +119,10 @@ class HeaderFooterBuilder:
         Điền và định dạng dữ liệu vào Bảng Khung Đầu Văn bản (Module 2)
         """
         rules = self.get_rules(standard_id)
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        superior_agency, issuing_agency = AdministrativeSanitizer.split_and_normalize_agency_header(
+            superior_agency, issuing_agency
+        )
         make_table_borders_invisible(table)
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
@@ -258,17 +262,35 @@ class HeaderFooterBuilder:
         p_r_date.paragraph_format.space_before = Pt(4)
         p_r_date.paragraph_format.space_after = Pt(0)
 
-        loc = location.strip() if location else "Hà Nội"
-        if not date_str:
-            date_str = "ngày ... tháng ... năm 2026"
+        from core.administrative_sanitizer import AdministrativeSanitizer
 
-        full_date_text = f"{loc}, {date_str}" if not date_str.lower().startswith(loc.lower()) else date_str
+        # 1. Trích xuất địa danh và chuỗi ngày tháng
+        extracted_loc, raw_date = AdministrativeSanitizer.extract_location_and_date(date_str)
+        loc = location.strip() if location else ""
+        if extracted_loc:
+            loc = extracted_loc
+        if not loc or loc in ["...", "…"]:
+            loc = AdministrativeSanitizer.infer_location_from_agencies(issuing_agency, superior_agency)
+
+        final_date = raw_date if raw_date else (date_str.strip() if date_str else "")
+        if not final_date:
+            final_date = "ngày ... tháng ... năm 2026"
+
+        # Chuẩn hóa ngày tháng nếu đã có số cụ thể (ngày < 10 có 0, tháng 1, 2 có 0 per NĐ 30)
+        final_date = AdministrativeSanitizer.format_date_nd30(final_date)
+
+        if loc and loc not in ["...", "…"]:
+            if final_date.lower().startswith(loc.lower()):
+                full_date_text = final_date
+            else:
+                full_date_text = f"{loc}, {final_date}"
+        else:
+            if final_date.startswith("...") or final_date.startswith("…"):
+                full_date_text = final_date
+            else:
+                full_date_text = f"..., {final_date}"
+
         full_date_text = re.sub(r'\s+,', ',', full_date_text)
-        try:
-            from core.spell_linter import SpellLinter
-            full_date_text = SpellLinter().lint_text(full_date_text, standard_id=standard_id).cleaned_text
-        except Exception:
-            pass
         r_date = p_r_date.add_run(full_date_text)
         format_run(r_date, size_pt=rules["header"]["date_font_size_pt"], italic=True)
 
@@ -293,8 +315,16 @@ class HeaderFooterBuilder:
         for row in table.rows:
             row.cells[0].width = col_left_width
             row.cells[1].width = col_right_width
-            set_cell_margins(row.cells[0], top=40, bottom=40, left=40, right=40)
-            set_cell_margins(row.cells[1], top=40, bottom=40, left=40, right=40)
+            set_cell_margins(row.cells[0], top=20, bottom=20, left=30, right=30)
+            set_cell_margins(row.cells[1], top=20, bottom=20, left=30, right=30)
+            try:
+                trPr = row._tr.get_or_add_trPr()
+                if trPr.find(qn('w:cantSplit')) is None:
+                    from docx.oxml import parse_xml
+                    from docx.oxml.ns import nsdecls
+                    trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+            except Exception:
+                pass
 
         cell_left = table.cell(0, 0)
         cell_right = table.cell(0, 1)
@@ -374,10 +404,10 @@ class HeaderFooterBuilder:
             r_pos = p_auth.add_run(pos_text)
             format_run(r_pos, size_pt=rules["signing"]["position_font_size_pt"], bold=True)
 
-        # Khoảng trống chừa ký tay và đóng dấu (4 dòng đơn ~ 30-35mm)
+        # Khoảng trống chừa ký tay và đóng dấu (~28-30mm khoảng trống ký chuẩn NĐ 30, tối ưu không tràn trang)
         p_gap = cell_right.add_paragraph()
         p_gap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_gap.paragraph_format.space_before = Pt(36)  # ~35mm khoảng trống ký
+        p_gap.paragraph_format.space_before = Pt(22)
         p_gap.paragraph_format.space_after = Pt(0)
         p_gap.paragraph_format.line_spacing = 1.0
 

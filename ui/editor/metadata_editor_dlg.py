@@ -363,8 +363,15 @@ class MetadataEditorDialog(QDialog):
         c_loc = QVBoxLayout()
         c_loc.setSpacing(4)
         c_loc.addWidget(QLabel("Địa danh ban hành:"))
-        self.txt_loc = QLineEdit(self.meta.get("location", "Hà Nội"))
-        self.txt_loc.setPlaceholderText("Ví dụ: Hà Nội, Xã Thuận Hạnh, Huyện Cư Jút...")
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        init_loc = self.meta.get("location", "").strip()
+        if not init_loc or init_loc in ["Xã", "Huyện", "Tỉnh", "...", "…"]:
+            init_loc = AdministrativeSanitizer.infer_location_from_agencies(
+                self.meta.get("issuing_agency", ""),
+                self.meta.get("superior_agency", "")
+            )
+        self.txt_loc = QLineEdit(init_loc)
+        self.txt_loc.setPlaceholderText("Ví dụ: Thuận Hạnh, Quảng Ninh, Hà Nội...")
         c_loc.addWidget(self.txt_loc)
         row_loc_date.addLayout(c_loc, 1)
 
@@ -745,10 +752,15 @@ class MetadataEditorDialog(QDialog):
         if not rec_lines:
             rec_lines = ["- Thường trực HĐND;", "- Lãnh đạo UBND;", "- Lưu: VT."]
 
+        sup_in = self.txt_sup.text().strip().upper()
+        iss_in = self.txt_iss.text().strip().upper()
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        sup_norm, iss_norm = AdministrativeSanitizer.split_and_normalize_agency_header(sup_in, iss_in)
+
         self.meta.update({
             "standard_id": "HD36" if self.rb_hd36.isChecked() else "ND30",
-            "superior_agency": self.txt_sup.text().strip().upper(),
-            "issuing_agency": self.txt_iss.text().strip().upper(),
+            "superior_agency": sup_norm,
+            "issuing_agency": iss_norm,
             "doc_number": self.txt_num.text().strip(),
             "location": loc,
             "date_str": date_str,

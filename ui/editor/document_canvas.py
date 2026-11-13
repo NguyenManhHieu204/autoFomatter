@@ -324,7 +324,7 @@ class DocumentCanvas(QFrame):
             "superior_agency": "ỦY BAN NHÂN DÂN HUYỆN",
             "issuing_agency": "ỦY BAN NHÂN DÂN XÃ",
             "doc_number": "Số: .../QĐ-UBND",
-            "location": "Xã",
+            "location": "...",
             "date_str": "..., ngày ... tháng ... năm 2026",
             "doc_type": "QUYẾT ĐỊNH",
             "doc_subject": "Về việc ban hành Kế hoạch phát triển kinh tế - xã hội năm 2026",
@@ -662,6 +662,8 @@ class DocumentCanvas(QFrame):
         std = self.metadata.get("standard_id", "ND30").upper()
         sup = self.metadata.get("superior_agency", "").strip().upper()
         iss = self.metadata.get("issuing_agency", "").strip().upper()
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        sup, iss = AdministrativeSanitizer.split_and_normalize_agency_header(sup, iss)
         num = self.metadata.get("doc_number", "Số: .../QĐ-UBND")
         date = self.metadata.get("date_str", "Hà Nội, ngày ... tháng ... năm 2026")
 

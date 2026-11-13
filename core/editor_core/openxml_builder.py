@@ -140,11 +140,16 @@ class OpenXmlBuilder:
         p_l.paragraph_format.line_spacing = 1.1
 
         sup_agency = meta.get("superior_agency", "").strip().upper()
+        iss_agency = meta.get("issuing_agency", "").strip().upper()
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        sup_agency, iss_agency = AdministrativeSanitizer.split_and_normalize_agency_header(sup_agency, iss_agency)
+        if not iss_agency:
+            iss_agency = "BAN THƯỜNG VỤ" if standard_id == "HD36" else "ỦY BAN NHÂN DÂN"
+
         if sup_agency:
             r_sup = p_l.add_run(sup_agency + "\n")
             format_run_font(r_sup, size_pt=12.0, bold=False)
 
-        iss_agency = meta.get("issuing_agency", "").strip().upper() or ("BAN THƯỜNG VỤ" if standard_id == "HD36" else "ỦY BAN NHÂN DÂN")
         r_iss = p_l.add_run(iss_agency)
         format_run_font(r_iss, size_pt=12.5, bold=True)
 
@@ -204,8 +209,21 @@ class OpenXmlBuilder:
         p_r_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_r_date.paragraph_format.space_before = Pt(4)
         p_r_date.paragraph_format.space_after = Pt(0)
-        loc = meta.get("location", "Hà Nội").strip() or "Hà Nội"
-        date_str = meta.get("date_str", "").strip() or f"{loc}, ngày ... tháng ... năm 2026"
+        loc = meta.get("location", "").strip()
+        if not loc or loc in ["Xã", "Huyện", "Tỉnh", "...", "…"]:
+            from core.administrative_sanitizer import AdministrativeSanitizer
+            loc = AdministrativeSanitizer.infer_location_from_agencies(
+                meta.get("issuing_agency", ""),
+                meta.get("superior_agency", "")
+            )
+        date_str = meta.get("date_str", "").strip()
+        if not date_str:
+            if loc and loc not in ["...", "…"]:
+                date_str = f"{loc}, ngày ... tháng ... năm 2026"
+            else:
+                date_str = "..., ngày ... tháng ... năm 2026"
+        elif loc and loc not in ["...", "…"] and not date_str.lower().startswith(loc.lower()):
+            date_str = f"{loc}, {date_str}"
         r_date = p_r_date.add_run(date_str)
         format_run_font(r_date, size_pt=13.0, italic=True)
 

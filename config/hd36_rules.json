@@ -13,9 +13,9 @@
   },
   "typography": {
     "font_name": "Times New Roman",
-    "body_font_size_pt": 14.0,
-    "body_line_spacing": 1.2,
-    "body_space_before_pt": 6.0,
+    "body_font_size_pt": 13.0,
+    "body_line_spacing": 1.12,
+    "body_space_before_pt": 2.0,
     "body_space_after_pt": 0.0,
     "body_first_line_indent_mm": 12.7,
     "body_alignment": "JUSTIFY"

@@ -9,6 +9,7 @@ Bao gồm:
 
 import os
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Dict, Any
 import docx
@@ -91,7 +92,7 @@ AUTHORITY_PREFIX_PATTERN = re.compile(
 )
 
 DATE_PATTERN = re.compile(
-    r'([A-Za-zÀ-ỹ\s]+,)?\s*ngày\s+\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}',
+    r'\b(?:ngày|ngay)\b[\s\S]*?\b(?:tháng|thang)\b',
     re.IGNORECASE
 )
 
@@ -200,14 +201,14 @@ class DocParser:
             if DOC_TYPES_PATTERN.match(norm_text) or any(norm_u.startswith(dt) for dt in ["BÁO CÁO", "QUYẾT ĐỊNH", "NGHỊ QUYẾT", "QUYẾT NGHỊ", "CHỈ THỊ", "KẾT LUẬN", "KẾ HOẠCH", "TỜ TRÌNH", "THÔNG BÁO", "CÔNG VĂN"]):
                 break
 
-            # Kiểm tra dòng 2 cột phân cách bằng tab hoặc >= 3 khoảng trắng
-            parts = [part.strip() for part in re.split(r'\t+|\s{3,}', text) if part.strip()]
+            # Kiểm tra dòng 2 cột phân cách bằng tab hoặc >= 6 khoảng trắng
+            parts = [part.strip() for part in re.split(r'\t+|\s{6,}', text) if part.strip()]
             if len(parts) >= 2:
                 left_part = parts[0]
                 right_part = parts[-1]
-                r_u = right_part.upper()
+                r_u = unicodedata.normalize('NFC', right_part).upper().replace("HOÀ", "HÒA")
 
-                if "CỘNG HÒA XÃ HỘI" in r_u or "CONG HOA XA HOI" in r_u:
+                if "CỘNG HÒA" in r_u or "CONG HOA" in r_u:
                     structure.header.motto_country = right_part
                 elif "ĐỘC LẬP" in r_u or "DOC LAP" in r_u:
                     structure.header.motto_slogan = right_part
@@ -216,7 +217,7 @@ class DocParser:
                 elif DATE_PATTERN.search(right_part):
                     structure.header.location_date = right_part
 
-                l_u = left_part.upper()
+                l_u = unicodedata.normalize('NFC', left_part).upper()
                 if l_u.startswith("SỐ") or left_part.startswith("Số:") or left_part.startswith("Số ") or l_u.startswith("SO ") or l_u.startswith("S6 "):
                     structure.header.doc_number = left_part
                 else:
@@ -227,8 +228,8 @@ class DocParser:
 
                 header_para_count = i + 1
             else:
-                text_u = norm_u
-                if "CỘNG HÒA XÃ HỘI" in text_u or "CONG HOA XA HOI" in text_u:
+                text_u = unicodedata.normalize('NFC', norm_u).upper().replace("HOÀ", "HÒA")
+                if "CỘNG HÒA" in text_u or "CONG HOA" in text_u:
                     structure.header.motto_country = text
                     header_para_count = i + 1
                 elif "ĐỘC LẬP" in text_u or "DOC LAP" in text_u:
@@ -254,32 +255,84 @@ class DocParser:
                     else:
                         break
 
+        # Nếu chỉ có 1 cơ quan được trích xuất, đây chính là cơ quan ban hành (bắt buộc) theo NĐ 30
+        if structure.header.superior_agency and not structure.header.issuing_agency:
+            structure.header.issuing_agency = structure.header.superior_agency
+            structure.header.superior_agency = ""
+
+        # Chuẩn hóa ngắt dòng cơ quan theo chuẩn NĐ 30 (Dòng 1: ỦY BAN NHÂN DÂN, Dòng 2: XÃ THUẬN HẠNH / XÃ ĐỨC AN...)
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        structure.header.superior_agency, structure.header.issuing_agency = AdministrativeSanitizer.split_and_normalize_agency_header(
+            structure.header.superior_agency, structure.header.issuing_agency
+        )
+
         structure.header.raw_paragraphs_count = header_para_count
 
     def _extract_from_header_table(self, table: Table, header: ExtractedHeader):
         cell_0 = table.cell(0, 0)
         cell_1 = table.cell(0, 1)
 
-        lines_0 = [line.strip() for line in cell_0.text.split("\n") if line.strip()]
-        lines_1 = [line.strip() for line in cell_1.text.split("\n") if line.strip()]
+        # Trích xuất danh sách các dòng văn bản từ cell_0 và cell_1
+        lines_0 = []
+        for p in cell_0.paragraphs:
+            for line in p.text.split("\n"):
+                if line.strip():
+                    lines_0.append(line.strip())
+        if not lines_0:
+            lines_0 = [line.strip() for line in cell_0.text.split("\n") if line.strip()]
 
-        for line in lines_0:
-            if line.upper().startswith("SỐ") or "Số:" in line or "Số " in line:
+        lines_1 = []
+        for p in cell_1.paragraphs:
+            for line in p.text.split("\n"):
+                if line.strip():
+                    lines_1.append(line.strip())
+        if not lines_1:
+            lines_1 = [line.strip() for line in cell_1.text.split("\n") if line.strip()]
+
+        # Lọc bỏ các đường kẻ phân cách hình thức (---, ____)
+        clean_lines_0 = [l for l in lines_0 if not re.match(r'^[_\-\.——–—\s]{2,}$', l)]
+        clean_lines_1 = [l for l in lines_1 if not re.match(r'^[_\-\.——–—\s]{2,}$', l)]
+
+        # 1. Phân tích Cột Trái (Cơ quan & Số hiệu)
+        for line in clean_lines_0:
+            l_u = unicodedata.normalize('NFC', line).upper()
+            if l_u.startswith("SỐ") or "Số:" in line or "Số " in line or l_u.startswith("SO ") or l_u.startswith("S6 "):
                 header.doc_number = line
             elif not header.superior_agency:
                 header.superior_agency = line
             elif not header.issuing_agency:
                 header.issuing_agency = line
 
-        for line in lines_1:
-            if "CỘNG HÒA XÃ HỘI" in line.upper():
+        # Theo NĐ 30, cơ quan ban hành là bắt buộc, cơ quan chủ quản là tùy chọn (nếu có).
+        # Nếu chỉ phát hiện 1 dòng tên cơ quan, đó là cơ quan ban hành:
+        if header.superior_agency and not header.issuing_agency:
+            header.issuing_agency = header.superior_agency
+            header.superior_agency = ""
+
+        # Chuẩn hóa ngắt dòng cơ quan theo chuẩn NĐ 30 (Dòng 1: ỦY BAN NHÂN DÂN, Dòng 2: XÃ THUẬN HẠNH / XÃ ĐỨC AN...)
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        header.superior_agency, header.issuing_agency = AdministrativeSanitizer.split_and_normalize_agency_header(
+            header.superior_agency, header.issuing_agency
+        )
+
+        # 2. Phân tích Cột Phải (Quốc hiệu, Tiêu ngữ, Ngày tháng)
+        unmatched_lines_1 = []
+        for line in clean_lines_1:
+            line_u = unicodedata.normalize('NFC', line).upper().replace("HOÀ", "HÒA")
+            if "CỘNG HÒA" in line_u or "CONG HOA" in line_u:
                 header.motto_country = line
-            elif "ĐỘC LẬP" in line.upper():
+            elif "ĐỘC LẬP" in line_u or "DOC LAP" in line_u:
                 header.motto_slogan = line
-            elif "ĐẢNG CỘNG SẢN" in line.upper():
+            elif "ĐẢNG CỘNG SẢN" in line_u or "DANG CONG SAN" in line_u:
                 header.party_heading = line
             elif DATE_PATTERN.search(line):
                 header.location_date = line
+            else:
+                unmatched_lines_1.append(line)
+
+        # Fallback an toàn: nếu chưa bắt được location_date mà còn dòng chưa khớp ở cột phải
+        if not header.location_date and unmatched_lines_1:
+            header.location_date = unmatched_lines_1[-1]
 
     def _analyze_title_and_subject(self, structure: ParsedDocStructure):
         """

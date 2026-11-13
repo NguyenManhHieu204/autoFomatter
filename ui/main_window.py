@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
     QHeaderView, QRadioButton, QButtonGroup, QComboBox, QCheckBox,
     QProgressBar, QGroupBox, QFrame, QMessageBox, QSplitter,
-    QAbstractScrollArea, QSizePolicy
+    QAbstractScrollArea, QSizePolicy, QLineEdit
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QSize, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QFont, QColor, QPixmap, QAction
@@ -40,7 +40,8 @@ class ProcessingWorker(QThread):
         profile_data: Optional[Dict[str, Any]],
         export_pdf: bool,
         config_dir: str,
-        auto_ocr_scans: bool = True
+        auto_ocr_scans: bool = True,
+        output_dir: Optional[str] = None
     ):
         super().__init__()
         self.files = files
@@ -49,6 +50,7 @@ class ProcessingWorker(QThread):
         self.export_pdf = export_pdf
         self.config_dir = config_dir
         self.auto_ocr_scans = auto_ocr_scans
+        self.output_dir = output_dir
         self.engine = FormatterEngine(config_dir=config_dir)
         self.win32_helper = Win32WordHelper()
         self._is_cancelled = False
@@ -58,8 +60,12 @@ class ProcessingWorker(QThread):
 
     def run(self):
         total = len(self.files)
-        # Sử dụng word_session để khởi tạo 1 tiến trình Word duy nhất cho toàn bộ batch
-        with self.win32_helper.word_session() as word_app:
+        # Tối ưu hóa hiệu năng: Chỉ khởi tạo tiến trình Word nếu người dùng thực sự chọn xuất PDF
+        needs_word = self.export_pdf and any(not f.lower().endswith(".pdf") for f in self.files)
+        word_session_ctx = self.win32_helper.word_session() if needs_word else None
+
+        try:
+            word_app = word_session_ctx.__enter__() if word_session_ctx else None
             for idx, file_path in enumerate(self.files):
                 if self._is_cancelled:
                     break
@@ -75,15 +81,17 @@ class ProcessingWorker(QThread):
                         input_file=file_path,
                         standard_id=self.standard_id,
                         profile_override=self.profile_data,
-                        progress_callback=lambda p, msg: self.progress_updated.emit(pct + int(p * 0.5 / total), msg)
+                        progress_callback=lambda p, msg: self.progress_updated.emit(pct + int(p * 0.5 / total), msg),
+                        output_dir=self.output_dir
                     )
                 else:
                     self.progress_updated.emit(pct, f"Đang chuẩn hóa: {base_name} ({idx + 1}/{total})...")
-                    # 1. Chạy engine định dạng chính (có Safe Mode bảo vệ ảnh scan)
+                    # 1. Chạy engine định dạng chính siêu tốc (OpenXML thuần túy, < 0.05s)
                     report = self.engine.format_document(
                         input_docx_path=file_path,
                         standard_id=self.standard_id,
-                        profile_override=self.profile_data
+                        profile_override=self.profile_data,
+                        output_dir=self.output_dir
                     )
 
                     # Tự động chuyển giao sang OCR nếu phát hiện ảnh scan và người dùng bật auto_ocr_scans
@@ -93,23 +101,31 @@ class ProcessingWorker(QThread):
                             input_file=file_path,
                             standard_id=self.standard_id,
                             profile_override=self.profile_data,
-                            progress_callback=lambda p, msg: self.progress_updated.emit(pct + int(p * 0.5 / total), msg)
+                            progress_callback=lambda p, msg: self.progress_updated.emit(pct + int(p * 0.5 / total), msg),
+                            output_dir=self.output_dir
                         )
 
                 if self._is_cancelled:
                     break
 
-                # 2. Xử lý qua MS Word COM nếu thành công và có tùy chọn
+                # 2. Xử lý xuất PDF qua MS Word COM CHỈ KHI người dùng chọn xuất PDF
                 com_res = {"success": False, "pdf_exported": False, "pdf_path": ""}
-                if report.success and not file_path.lower().endswith(".pdf"):
+                if report.success and self.export_pdf and not file_path.lower().endswith(".pdf"):
                     com_res = self.win32_helper.process_document_via_word(
                         docx_path=report.output_file,
-                        export_pdf_also=self.export_pdf,
+                        export_pdf_also=True,
                         standard_id=self.standard_id,
                         word_app=word_app
                     )
 
                 self.file_finished.emit(idx, report, com_res)
+
+        finally:
+            if word_session_ctx:
+                try:
+                    word_session_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
         if self._is_cancelled:
             self.progress_updated.emit(0, "Đã dừng xử lý theo yêu cầu.")
@@ -128,7 +144,8 @@ class OcrWorker(QThread):
         standard_id: str,
         profile_data: Optional[Dict[str, Any]],
         export_pdf: bool,
-        config_dir: str
+        config_dir: str,
+        output_dir: Optional[str] = None
     ):
         super().__init__()
         self.file_path = file_path
@@ -136,6 +153,7 @@ class OcrWorker(QThread):
         self.profile_data = profile_data
         self.export_pdf = export_pdf
         self.config_dir = config_dir
+        self.output_dir = output_dir
         self.engine = FormatterEngine(config_dir=config_dir)
         self.win32_helper = Win32WordHelper()
         self._is_cancelled = False
@@ -151,7 +169,8 @@ class OcrWorker(QThread):
             input_file=self.file_path,
             standard_id=self.standard_id,
             profile_override=self.profile_data,
-            progress_callback=lambda pct, msg: self.progress_updated.emit(pct, msg)
+            progress_callback=lambda pct, msg: self.progress_updated.emit(pct, msg),
+            output_dir=self.output_dir
         )
 
         com_res = {"success": False, "pdf_exported": False, "pdf_path": ""}
@@ -340,6 +359,10 @@ class MainWindow(QMainWindow):
         act_prof = menu_tools.addAction("Quản lý Hồ sơ Cơ quan & Đơn vị...")
         act_prof.triggered.connect(self._open_profile_dialog)
 
+        act_batch = menu_tools.addAction("Xử lý hàng loạt văn bản (Nội dung & Đổi tên)...")
+        act_batch.setShortcut("Ctrl+B")
+        act_batch.triggered.connect(self._open_batch_dialog)
+
         act_ocr = menu_tools.addAction("Nhận dạng lại bảng biểu (Table OCR)...")
         act_ocr.triggered.connect(self._run_ocr_on_selected_file)
 
@@ -466,6 +489,20 @@ class MainWindow(QMainWindow):
 
         file_toolbar.addWidget(self.btn_add_files)
         file_toolbar.addWidget(self.btn_add_folder)
+
+        self.btn_batch = QPushButton("Xử lý hàng loạt (Nội dung & Tên tệp)...")
+        self.btn_batch.setStyleSheet("""
+            QPushButton {
+                background-color: #f8fafc; color: #1e3a8a; font-weight: 600;
+                font-size: 12px; padding: 6px 14px; border-radius: 5px; border: 1px solid #cbd5e1;
+            }
+            QPushButton:hover { background-color: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+            QPushButton:pressed { background-color: #dbeafe; }
+        """)
+        self.btn_batch.setToolTip("Chỉnh sửa nội dung theo chuẩn NĐ 30 và đổi tên tệp hàng loạt đồng thời")
+        self.btn_batch.clicked.connect(self._open_batch_dialog)
+        file_toolbar.addWidget(self.btn_batch)
+
         file_toolbar.addStretch(1)
 
         self.btn_remove_file = QPushButton("Xóa")
@@ -594,6 +631,44 @@ class MainWindow(QMainWindow):
 
         opts_layout.addLayout(opts_row1)
         opts_layout.addLayout(opts_row2)
+
+        # Tùy chọn nơi lưu tệp xuất
+        opts_out = QVBoxLayout()
+        opts_out.setSpacing(4)
+        lbl_out_hdr = QLabel("Nơi lưu tệp xuất ra:")
+        lbl_out_hdr.setStyleSheet("font-weight: 600; color: #1e293b; font-size: 11.5px;")
+        opts_out.addWidget(lbl_out_hdr)
+
+        row_out = QHBoxLayout()
+        self.txt_output_dir = QLineEdit()
+        self.txt_output_dir.setPlaceholderText("Mặc định: Cùng thư mục với tệp gốc")
+        self.txt_output_dir.setReadOnly(True)
+        self.txt_output_dir.setStyleSheet("""
+            QLineEdit {
+                background-color: #f8fafc;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11.5px;
+                color: #334155;
+            }
+        """)
+        self.btn_browse_output = QPushButton("Chọn...")
+        self.btn_browse_output.setStyleSheet("padding: 4px 10px; font-size: 11.5px;")
+        self.btn_browse_output.setToolTip("Chọn thư mục lưu tệp Word/PDF xuất ra")
+        self.btn_browse_output.clicked.connect(self._choose_output_directory)
+
+        self.btn_clear_output = QPushButton("Mặc định")
+        self.btn_clear_output.setStyleSheet("padding: 4px 8px; font-size: 11.5px; color: #64748b;")
+        self.btn_clear_output.setToolTip("Xóa thư mục riêng để lưu cùng thư mục với từng tệp gốc")
+        self.btn_clear_output.clicked.connect(self._reset_output_directory)
+
+        row_out.addWidget(self.txt_output_dir)
+        row_out.addWidget(self.btn_browse_output)
+        row_out.addWidget(self.btn_clear_output)
+        opts_out.addLayout(row_out)
+        opts_layout.addLayout(opts_out)
+
         cfg_layout.addLayout(opts_layout)
 
         left_layout.addWidget(config_group)
@@ -1018,6 +1093,7 @@ class MainWindow(QMainWindow):
         profile_data = self.cb_profiles.currentData()
         export_pdf = self.chk_export_pdf.isChecked()
         auto_ocr_scans = self.chk_auto_ocr.isChecked()
+        custom_out_dir = self.txt_output_dir.text().strip() or None
 
         # Tạo worker chạy ngầm
         self.worker = ProcessingWorker(
@@ -1026,7 +1102,8 @@ class MainWindow(QMainWindow):
             profile_data=profile_data,
             export_pdf=export_pdf,
             config_dir=self.config_dir,
-            auto_ocr_scans=auto_ocr_scans
+            auto_ocr_scans=auto_ocr_scans,
+            output_dir=custom_out_dir
         )
         self.worker.progress_updated.connect(self._on_worker_progress)
         self.worker.file_started.connect(self._on_file_started)
@@ -1089,11 +1166,21 @@ class MainWindow(QMainWindow):
             "Các tệp văn bản đã được căn chỉnh thể thức chuẩn xác theo quy định."
         )
 
-        if self.chk_open_folder.isChecked() and self.files_queue:
-            first_rep = self.reports_map.get(0)
-            if first_rep and os.path.exists(first_rep.output_file):
-                folder = os.path.dirname(first_rep.output_file)
-                os.startfile(folder)
+        if self.chk_open_folder.isChecked():
+            out_custom = self.txt_output_dir.text().strip()
+            if out_custom and os.path.exists(out_custom):
+                try:
+                    os.startfile(out_custom)
+                except Exception:
+                    pass
+            elif self.files_queue:
+                first_rep = self.reports_map.get(0)
+                if first_rep and os.path.exists(first_rep.output_file):
+                    folder = os.path.dirname(first_rep.output_file)
+                    try:
+                        os.startfile(folder)
+                    except Exception:
+                        pass
 
     def _on_file_selected(self, row: int, col: int):
         report = self.reports_map.get(row)
@@ -1212,12 +1299,14 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(5)
             self.lbl_status.setText(f"Đang bóc tách ảnh scan và chạy OCR: {os.path.basename(file_path)}...")
 
+            custom_out_dir = self.txt_output_dir.text().strip() or None
             self.ocr_worker = OcrWorker(
                 file_path=file_path,
                 standard_id=standard_id,
                 profile_data=profile_data,
                 export_pdf=export_pdf,
-                config_dir=self.config_dir
+                config_dir=self.config_dir,
+                output_dir=custom_out_dir
             )
             self.ocr_worker.progress_updated.connect(self._on_worker_progress)
             self.ocr_worker.ocr_finished.connect(lambda rep, com: self._on_single_ocr_finished(row, rep, com))
@@ -1348,12 +1437,21 @@ class MainWindow(QMainWindow):
                     )
 
     def _open_output_folder(self):
-        row = self.table_files.currentRow()
-        if row < 0 and self.files_queue:
-            row = 0
-        report = self.reports_map.get(row)
-        if report and os.path.exists(report.output_file):
-            folder = os.path.abspath(os.path.dirname(report.output_file))
+        out_custom = self.txt_output_dir.text().strip()
+        folder = ""
+        if out_custom and os.path.exists(out_custom):
+            folder = os.path.abspath(out_custom)
+        else:
+            row = self.table_files.currentRow()
+            if row < 0 and self.files_queue:
+                row = 0
+            report = self.reports_map.get(row)
+            if report and os.path.exists(report.output_file):
+                folder = os.path.abspath(os.path.dirname(report.output_file))
+            elif self.files_queue and 0 <= row < len(self.files_queue):
+                folder = os.path.abspath(os.path.dirname(self.files_queue[row]))
+
+        if folder and os.path.exists(folder):
             try:
                 os.startfile(folder)
             except Exception:
@@ -1423,3 +1521,28 @@ class MainWindow(QMainWindow):
                 os.startfile(dlg.signed_pdf_path)
             except Exception:
                 pass
+
+    def _choose_output_directory(self):
+        folder = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu tệp xuất")
+        if folder:
+            self.txt_output_dir.setText(folder)
+
+    def _reset_output_directory(self):
+        self.txt_output_dir.clear()
+
+    def _open_batch_dialog(self, initial_tab: int = 0):
+        from ui.batch_editor_dialog import BatchEditorDialog
+        selected_rows = sorted(set(index.row() for index in self.table_files.selectedIndexes()))
+        if selected_rows:
+            target_files = [self.files_queue[r] for r in selected_rows if 0 <= r < len(self.files_queue)]
+        else:
+            target_files = list(self.files_queue)
+
+        dlg = BatchEditorDialog(self, initial_files=target_files, initial_tab=initial_tab)
+        dlg.exec()
+
+    def _open_batch_editor_dialog(self):
+        self._open_batch_dialog(initial_tab=0)
+
+    def _open_batch_rename_dialog(self):
+        self._open_batch_dialog(initial_tab=1)

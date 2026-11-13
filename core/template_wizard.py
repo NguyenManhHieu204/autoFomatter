@@ -87,9 +87,18 @@ class TemplateWizardController:
         if clean_doc_type.endswith("CỦA ĐẢNG"):
             clean_doc_type = clean_doc_type.replace("CỦA ĐẢNG", "").strip()
 
-        loc = custom_location or profile_data.get("location", "Hà Nội")
+        from core.administrative_sanitizer import AdministrativeSanitizer
+        loc = custom_location or profile_data.get("location", "").strip()
+        if not loc or loc in ["Xã", "Huyện", "Tỉnh", "Thành phố", "...", "…"]:
+            loc = AdministrativeSanitizer.infer_location_from_agencies(
+                profile_data.get("issuing_agency", ""),
+                profile_data.get("superior_agency", "")
+            )
         now = datetime.datetime.now()
-        date_str = f"{loc}, ngày {now.day:02d} tháng {now.month:02d} năm {now.year}"
+        if loc and loc not in ["...", "…"]:
+            date_str = f"{loc}, ngày {now.day:02d} tháng {now.month:02d} năm {now.year}"
+        else:
+            date_str = f"..., ngày {now.day:02d} tháng {now.month:02d} năm {now.year}"
 
         # Xác định số hiệu văn bản
         doc_num = custom_doc_number

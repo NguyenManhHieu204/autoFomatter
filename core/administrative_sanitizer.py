@@ -9,6 +9,7 @@ Chuyên trị các lỗi OCR phổ biến trong văn bản Đảng & Hành chín
 
 import os
 import re
+import unicodedata
 from typing import List, Tuple, Dict, Any, Optional
 from docx.shared import Pt
 from docx.oxml import OxmlElement
@@ -99,6 +100,7 @@ ADMIN_OCR_REPLACEMENTS = [
     (re.compile(r'\b(quyet\s+dinh|quyết\s+định)\s+co\s+hieu\s+luc\s+ke\s+(?:t[uừ]|tir)\s+ngay\s+ky\b', re.IGNORECASE), 'Quyết định có hiệu lực kể từ ngày ký'),
     (re.compile(r'(\bĐiều\s+\d+)[\.,]\s*[Cc]ăn\s+cứ\s+(?:QUYẾT\s+ĐỊNH|Quyết\s+định)\s+thi\s+h[aà]nh\b', re.IGNORECASE), r'\1, căn cứ Quyết định thi hành'),
     (re.compile(r'\bxa\s+Thuan\s+Hanh\b|\bxa\s+Thuận\s+Hạnh\b', re.IGNORECASE), 'xã Thuận Hạnh'),
+    (re.compile(r'\b(?:xa\s+)?(?:thuan\s+hnahj?|thuận\s+hnahj?)\b', re.IGNORECASE), 'Thuận Hạnh'),
     (re.compile(r'\bThuan\s+Hanh\b', re.IGNORECASE), 'Thuận Hạnh'),
     (re.compile(r'\bDak\s+Nong\b|\bĐak\s+Nong\b', re.IGNORECASE), 'Đắk Nông'),
     (re.compile(r'\b(Đảng\s+bộ|Đảng\s+ủy|UBND|HDND|HĐND|Hội\s+đồng\s+nhân\s+dân|Ủy\s+ban\s+nhân\s+dân|BCH\s+Đảng\s+bộ)\s+xa\b', re.IGNORECASE), r'\1 xã'),
@@ -397,6 +399,289 @@ class AdministrativeSanitizer:
             "location": location,
             "doc_number": doc_num
         }
+
+    @staticmethod
+    def clean_location_name(loc: str) -> str:
+        """
+        Chuẩn hóa tên địa danh theo quy định tại Phụ lục I & Phụ lục II NĐ 30/2020/NĐ-CP:
+        - Xóa dấu chấm phẩy, gạch ngang thừa ở đầu/cuối
+        - Cấp xã, huyện, tỉnh thông thường chỉ lấy tên riêng (ví dụ: Xã Thuận Hạnh -> Thuận Hạnh)
+        - Đơn vị hành chính đặt theo chữ số, tên người, sự kiện lịch sử giữ nguyên (ví dụ: Quận 1, Phường Điện Biên Phủ)
+        - Các trường hợp viết hoa đặc biệt: Thủ đô Hà Nội, Thành phố Hồ Chí Minh
+        """
+        if not loc:
+            return ""
+        loc = loc.strip()
+        loc = re.sub(r'^[,\s\.\-–—_…]+|[,\s\.\-–—_…]+$', '', loc).strip()
+        if not loc or loc in ["...", "…", "......", "....."]:
+            return ""
+
+        # Trường hợp viết hoa đặc biệt theo Phụ lục II NĐ 30/2020/NĐ-CP
+        if re.search(r'\b(?:THÀNH PHỐ HỒ CHÍ MINH|TP\.?\s*HỒ CHÍ MINH|TP\.?\s*HCM)\b', loc, re.IGNORECASE):
+            return "Thành phố Hồ Chí Minh"
+        if re.search(r'\b(?:THỦ ĐÔ HÀ NỘI|THÀNH PHỐ HÀ NỘI|TP\.?\s*HÀ NỘI)\b', loc, re.IGNORECASE):
+            return "Hà Nội"
+
+        # Tách danh từ chung (Xã, Thị trấn, Huyện, Tỉnh...)
+        m = re.match(r'^(Xã|Xa|Thị trấn|Thi tran|Huyện|Huyen|Tỉnh|Tinh)\s+([A-Za-zÀ-ỹ0-9\s\'\-]+)$', loc, re.IGNORECASE)
+        if m:
+            unit = m.group(1).title()
+            name = m.group(2).strip().title()
+            # Nếu đặt bằng chữ số
+            if re.match(r'^\d+$', name):
+                return f"{unit} {name}"
+            return name
+
+        m = re.match(r'^(Phường|Phuong|Quận|Quan|Thành phố|Thanh pho|TP\.?)\s+([A-Za-zÀ-ỹ0-9\s\'\-]+)$', loc, re.IGNORECASE)
+        if m:
+            unit = m.group(1).title()
+            name = m.group(2).strip().title()
+            # Giữ nguyên cả cấp hành chính nếu đặt theo chữ số, tên người hoặc sự kiện lịch sử
+            if re.match(r'^\d+$', name) or any(k in name.lower() for k in ["điện biên phủ", "hồ chí minh", "bác hồ", "quang trung", "lê lợi"]):
+                return f"{unit} {name}"
+            return name
+
+        return loc.title()
+
+    @staticmethod
+    def extract_location_and_date(text: str) -> Tuple[str, str]:
+        """
+        Tách địa danh và chuỗi ngày tháng năm từ dòng địa danh & thời gian ban hành văn bản.
+        Ví dụ:
+          'Thuận Hạnh, ngày    tháng    năm 2026' -> ('Thuận Hạnh', 'ngày    tháng    năm 2026')
+          'Hà Nội, ngày 05 tháng 01 năm 2020'   -> ('Hà Nội', 'ngày 05 tháng 01 năm 2020')
+          'ngày ... tháng ... năm 2026'         -> ('', 'ngày ... tháng ... năm 2026')
+          'Quảng Ninh ,ngày 5 tháng 04 năm 2026' -> ('Quảng Ninh', 'ngày 5 tháng 04 năm 2026')
+        """
+        if not text:
+            return "", ""
+        norm_text = unicodedata.normalize("NFC", text.strip())
+        m = re.search(r'\b(?:ngày|ngay)\b', norm_text, re.IGNORECASE)
+        if m:
+            raw_loc = norm_text[:m.start()].strip()
+            date_part = norm_text[m.start():].strip()
+            cleaned_loc = AdministrativeSanitizer.clean_location_name(raw_loc)
+            return cleaned_loc, date_part
+        return AdministrativeSanitizer.clean_location_name(norm_text), ""
+
+    @staticmethod
+    def infer_location_from_agencies(issuing: str, superior: str = "") -> str:
+        """
+        Xác định địa danh ban hành theo quy định tại Phụ lục I Mục II khoản 4a Nghị định 30/2020/NĐ-CP:
+        'Địa danh ghi trên văn bản do cơ quan nhà nước ở địa phương ban hành là tên gọi
+        chính thức của đơn vị hành chính nơi cơ quan ban hành văn bản đóng trụ sở.'
+        Ưu tiên cơ quan ban hành trực tiếp (issuing), sau đó tới cơ quan cấp trên (superior).
+        """
+        combined = f"{issuing} {superior}".strip()
+        if not combined:
+            return ""
+
+        # Trường hợp viết hoa đặc biệt theo Phụ lục II NĐ 30/2020/NĐ-CP
+        if re.search(r'\b(?:THÀNH PHỐ HỒ CHÍ MINH|TP\.?\s*HỒ CHÍ MINH|TP\.?\s*HCM)\b', combined, re.IGNORECASE):
+            return "Thành phố Hồ Chí Minh"
+        if re.search(r'\b(?:THỦ ĐÔ HÀ NỘI|THÀNH PHỐ HÀ NỘI|TP\.?\s*HÀ NỘI)\b', combined, re.IGNORECASE):
+            return "Hà Nội"
+
+        for text in [issuing, superior]:
+            if not text:
+                continue
+            # 1. Cấp Xã / Phường / Thị trấn
+            m = re.search(
+                r'\b(?:XÃ|XA|PHƯỜNG|PHUONG|THỊ TRẤN|THI TRAN)\s+([A-Za-zÀ-ỹ0-9\s\'\-]+?)(?=\s+(?:HUYỆN|QUẬN|THỊ XÃ|TỈNH|TP)|$|\n|,|\.)',
+                text,
+                re.IGNORECASE
+            )
+            if m:
+                raw_candidate = text[m.start():m.end()]
+                loc = AdministrativeSanitizer.clean_location_name(raw_candidate)
+                if loc:
+                    return loc
+
+            # 2. Cấp Huyện / Quận / Thị xã
+            m = re.search(
+                r'\b(?:HUYỆN|HUYEN|QUẬN|QUAN|THỊ XÃ|THI XA)\s+([A-Za-zÀ-ỹ0-9\s\'\-]+?)(?=\s+(?:TỈNH|TP)|$|\n|,|\.)',
+                text,
+                re.IGNORECASE
+            )
+            if m:
+                raw_candidate = text[m.start():m.end()]
+                loc = AdministrativeSanitizer.clean_location_name(raw_candidate)
+                if loc:
+                    return loc
+
+            # 3. Cấp Tỉnh / Thành phố
+            m = re.search(
+                r'\b(?:TỈNH|TINH|THÀNH PHỐ|THANH PHO|TP\.?)\s+([A-Za-zÀ-ỹ0-9\s\'\-]+?)(?=$|\n|,|\.)',
+                text,
+                re.IGNORECASE
+            )
+            if m:
+                raw_candidate = text[m.start():m.end()]
+                loc = AdministrativeSanitizer.clean_location_name(raw_candidate)
+                if loc:
+                    return loc
+
+        return ""
+
+    @staticmethod
+    def split_and_normalize_agency_header(superior: str, issuing: str, context_text: str = "") -> Tuple[str, str]:
+        """
+        Chuẩn hóa cách ngắt dòng và thể thức tên cơ quan ban hành theo Nghị định 30/2020/NĐ-CP:
+        - Quy tắc cấp xã/phường/thị trấn:
+          Dòng 1: ỦY BAN NHÂN DÂN (chữ in hoa, cỡ 12-13, đứng, không đậm)
+          Dòng 2: XÃ THUẬN HẠNH / XÃ ĐỨC AN / PHƯỜNG... / THỊ TRẤN... (chữ in hoa, cỡ 12-13, đứng, đậm, có gạch ngang dưới)
+        - TUYỆT ĐỐI KHÔNG để chữ 'XÃ' dính ở dòng trên như 'ỦY BAN NHÂN DÂN XÃ' rồi dòng dưới chỉ có 'THUẬN HẠNH'.
+        - Xử lý linh hoạt bám sát nội dung từng tệp (Thuận Hạnh, Đức An, Nam Bình, Kiến Đức...) không dập khuôn cứng nhắc.
+        """
+        sup = superior.strip() if superior else ""
+        iss = issuing.strip() if issuing else ""
+
+        # 1. Phục hồi lỗi OCR và chuẩn hóa chính tả
+        if sup:
+            sup_healed, _ = AdministrativeSanitizer.heal_ocr_text(sup)
+            sup = unicodedata.normalize('NFC', sup_healed).strip()
+        if iss:
+            iss_healed, _ = AdministrativeSanitizer.heal_ocr_text(iss)
+            iss = unicodedata.normalize('NFC', iss_healed).strip()
+
+        # Làm sạch các từ thừa / placeholder không hợp lệ
+        if sup in ["CƠ QUAN CHỦ QUẢN", "...", "…", "---", "___"]:
+            sup = ""
+        if iss in ["CƠ QUAN BAN HÀNH", "...", "…", "---", "___"]:
+            iss = ""
+
+        # 2. Trường hợp 1: superior chứa đuôi đơn vị hành chính (XÃ, PHƯỜNG, THỊ TRẤN, HUYỆN, QUẬN, THỊ XÃ)
+        # Ví dụ: superior = "ỦY BAN NHÂN DÂN XÃ", issuing = "THUẬN HẠNH" -> ("ỦY BAN NHÂN DÂN", "XÃ THUẬN HẠNH")
+        m_sup_unit = re.search(
+            r'^(ỦY\s+BAN\s+NHÂN\s+DÂN|UBND|HỘI\s+ĐỒNG\s+NHÂN\s+DÂN|HĐND)\s+(XÃ|XA|PHƯỜNG|PHUONG|THỊ\s+TRẤN|THI\s+TRAN|HUYỆN|HUYEN|QUẬN|QUAN|THỊ\s+XÃ|THI\s+XA)\s*$',
+            sup,
+            re.IGNORECASE
+        )
+        if m_sup_unit:
+            raw_agency = m_sup_unit.group(1).upper()
+            raw_unit = m_sup_unit.group(2).upper()
+
+            agency_type = "ỦY BAN NHÂN DÂN" if ("UBND" in raw_agency or "ỦY BAN" in raw_agency) else "HỘI ĐỒNG NHÂN DÂN"
+            unit_norm = "XÃ"
+            if raw_unit in ["PHUONG", "PHƯỜNG"]:
+                unit_norm = "PHƯỜNG"
+            elif raw_unit in ["THI TRAN", "THỊ TRẤN"]:
+                unit_norm = "THỊ TRẤN"
+            elif raw_unit in ["HUYEN", "HUYỆN"]:
+                unit_norm = "HUYỆN"
+            elif raw_unit in ["QUAN", "QUẬN"]:
+                unit_norm = "QUẬN"
+            elif raw_unit in ["THI XA", "THỊ XÃ"]:
+                unit_norm = "THỊ XÃ"
+
+            sup = agency_type
+            if iss:
+                # Đảm bảo issuing bắt đầu bằng tên đơn vị (ví dụ: XÃ THUẬN HẠNH)
+                if not re.match(r'^(XÃ|XA|PHƯỜNG|PHUONG|THỊ\s+TRẤN|THI\s+TRAN|HUYỆN|HUYEN|QUẬN|QUAN|THỊ\s+XÃ|THI\s+XA)\b', iss, re.IGNORECASE):
+                    iss = f"{unit_norm} {iss}".strip()
+            else:
+                loc_inf = AdministrativeSanitizer.infer_location_from_agencies("", context_text)
+                if loc_inf:
+                    iss = f"{unit_norm} {loc_inf.upper()}".strip()
+
+        # 3. Trường hợp 2: issuing chứa trọn bộ tên cơ quan kèm đơn vị hành chính
+        # Ví dụ: issuing = "ỦY BAN NHÂN DÂN XÃ THUẬN HẠNH" (hoặc "UBND XÃ ĐỨC AN")
+        m_iss_full = re.search(
+            r'^(ỦY\s+BAN\s+NHÂN\s+DÂN|UBND|HỘI\s+ĐỒNG\s+NHÂN\s+DÂN|HĐND)\s+(XÃ|XA|PHƯỜNG|PHUONG|THỊ\s+TRẤN|THI\s+TRAN|HUYỆN|HUYEN|QUẬN|QUAN|THỊ\s+XÃ|THI\s+XA)\s+(.+)$',
+            iss,
+            re.IGNORECASE
+        )
+        if m_iss_full:
+            raw_agency = m_iss_full.group(1).upper()
+            raw_unit = m_iss_full.group(2).upper()
+            unit_name = m_iss_full.group(3).strip()
+
+            agency_type = "ỦY BAN NHÂN DÂN" if ("UBND" in raw_agency or "ỦY BAN" in raw_agency) else "HỘI ĐỒNG NHÂN DÂN"
+            unit_norm = "XÃ"
+            if raw_unit in ["PHUONG", "PHƯỜNG"]:
+                unit_norm = "PHƯỜNG"
+            elif raw_unit in ["THI TRAN", "THỊ TRẤN"]:
+                unit_norm = "THỊ TRẤN"
+            elif raw_unit in ["HUYEN", "HUYỆN"]:
+                unit_norm = "HUYỆN"
+            elif raw_unit in ["QUAN", "QUẬN"]:
+                unit_norm = "QUẬN"
+            elif raw_unit in ["THI XA", "THỊ XÃ"]:
+                unit_norm = "THỊ XÃ"
+
+            if not sup or sup in ["ỦY BAN NHÂN DÂN", "UBND", "HỘI ĐỒNG NHÂN DÂN", "HĐND"]:
+                sup = agency_type
+                iss = f"{unit_norm} {unit_name}".strip()
+
+        # 4. Trường hợp 3: superior chứa trọn bộ tên cơ quan kèm đơn vị, issuing rỗng hoặc chỉ có tên riêng
+        m_sup_full = re.search(
+            r'^(ỦY\s+BAN\s+NHÂN\s+DÂN|UBND|HỘI\s+ĐỒNG\s+NHÂN\s+DÂN|HĐND)\s+(XÃ|XA|PHƯỜNG|PHUONG|THỊ\s+TRẤN|THI\s+TRAN|HUYỆN|HUYEN|QUẬN|QUAN|THỊ\s+XÃ|THI\s+XA)\s+(.+)$',
+            sup,
+            re.IGNORECASE
+        )
+        if m_sup_full and not iss:
+            raw_agency = m_sup_full.group(1).upper()
+            raw_unit = m_sup_full.group(2).upper()
+            unit_name = m_sup_full.group(3).strip()
+
+            agency_type = "ỦY BAN NHÂN DÂN" if ("UBND" in raw_agency or "ỦY BAN" in raw_agency) else "HỘI ĐỒNG NHÂN DÂN"
+            unit_norm = "XÃ"
+            if raw_unit in ["PHUONG", "PHƯỜNG"]:
+                unit_norm = "PHƯỜNG"
+            elif raw_unit in ["THI TRAN", "THỊ TRẤN"]:
+                unit_norm = "THỊ TRẤN"
+            elif raw_unit in ["HUYEN", "HUYỆN"]:
+                unit_norm = "HUYỆN"
+            elif raw_unit in ["QUAN", "QUẬN"]:
+                unit_norm = "QUẬN"
+            elif raw_unit in ["THI XA", "THỊ XÃ"]:
+                unit_norm = "THỊ XÃ"
+
+            sup = agency_type
+            iss = f"{unit_norm} {unit_name}".strip()
+
+        # 5. Trường hợp 4: superior là "ỦY BAN NHÂN DÂN" (hoặc HĐND) và issuing là tên riêng thiếu tiền tố "XÃ"
+        # Ví dụ: superior = "ỦY BAN NHÂN DÂN", issuing = "THUẬN HẠNH" -> issuing = "XÃ THUẬN HẠNH"
+        if sup in ["ỦY BAN NHÂN DÂN", "UBND", "HỘI ĐỒNG NHÂN DÂN", "HĐND"] and iss:
+            if not re.match(r'^(XÃ|XA|PHƯỜNG|PHUONG|THỊ\s+TRẤN|THI\s+TRAN|HUYỆN|HUYEN|QUẬN|QUAN|THỊ\s+XÃ|THI\s+XA|TỈNH|TINH|THÀNH\s+PHỐ|TP)\b', iss, re.IGNORECASE):
+                # Kiểm tra context nếu có chữ phường hoặc thị trấn
+                if "phường" in context_text.lower() or "phuong" in context_text.lower():
+                    iss = f"PHƯỜNG {iss}".strip()
+                elif "thị trấn" in context_text.lower() or "thi tran" in context_text.lower():
+                    iss = f"THỊ TRẤN {iss}".strip()
+                elif "huyện" in context_text.lower() or "huyen" in context_text.lower():
+                    iss = f"HUYỆN {iss}".strip()
+                else:
+                    iss = f"XÃ {iss}".strip()
+
+        # Chuẩn hóa viết hoa toàn bộ theo thể thức tên cơ quan NĐ 30
+        sup_res = sup.upper().strip() if sup else ""
+        iss_res = iss.upper().strip() if iss else ""
+        return sup_res, iss_res
+
+    @staticmethod
+    def format_date_nd30(date_str: str) -> str:
+        """
+        Chuẩn hóa thể thức thời gian ban hành văn bản theo NĐ 30/2020/NĐ-CP:
+        - Ngày < 10: ghi thêm số 0 phía trước (ví dụ: ngày 05).
+        - Tháng 1, 2: ghi thêm số 0 phía trước (ví dụ: tháng 01, tháng 02).
+        - Tháng 3 - 12: ghi 1 chữ số hoặc 2 chữ số không có số 0 dẫn đầu (ví dụ: tháng 3, tháng 12).
+        - Giữ nguyên khoảng trống hoặc dấu chấm nếu là văn bản dự thảo (ngày ... tháng ... năm ... hoặc ngày    tháng    năm).
+        """
+        if not date_str:
+            return ""
+
+        def repl(m):
+            raw_day = m.group(1)
+            raw_month = m.group(2)
+            raw_year = m.group(3)
+            day_num = int(raw_day)
+            month_num = int(raw_month)
+            corrected_day = f"{day_num:02d}" if day_num < 10 else str(day_num)
+            corrected_month = f"{month_num:02d}" if month_num in (1, 2) else str(month_num)
+            return f"ngày {corrected_day} tháng {corrected_month} năm {raw_year}"
+
+        return re.sub(r'\bngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})\b', repl, date_str, flags=re.IGNORECASE)
 
     @staticmethod
     def parse_in_text_footer(paragraphs_text: List[str]) -> Optional[Dict[str, Any]]:

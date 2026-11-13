@@ -28,6 +28,7 @@ from ui.editor.table_properties_dlg import TablePropertiesDialog
 from core.editor_core.openxml_builder import OpenXmlBuilder
 from core.legal_constraint_guard import LegalConstraintGuard
 from core.win32_helper import Win32WordHelper
+from core.administrative_sanitizer import AdministrativeSanitizer
 from ui.signature_dialog import SignatureDialog
 
 
@@ -515,17 +516,29 @@ class WordEditorWindow(QMainWindow):
             meta_update = {}
             if st.detected_standard:
                 meta_update["standard_id"] = st.detected_standard
-            if st.header.superior_agency:
-                meta_update["superior_agency"] = st.header.superior_agency
+            if st.header.superior_agency or st.header.issuing_agency:
+                norm_sup, norm_iss = AdministrativeSanitizer.split_and_normalize_agency_header(
+                    st.header.superior_agency, st.header.issuing_agency
+                )
+                meta_update["superior_agency"] = norm_sup
+                meta_update["issuing_agency"] = norm_iss
             elif st.header.has_existing_table:
                 meta_update["superior_agency"] = ""
-
-            if st.header.issuing_agency:
-                meta_update["issuing_agency"] = st.header.issuing_agency
+                meta_update["issuing_agency"] = ""
             if st.header.doc_number:
                 meta_update["doc_number"] = st.header.doc_number
             if st.header.location_date:
                 meta_update["date_str"] = st.header.location_date
+                loc_ext, _ = AdministrativeSanitizer.extract_location_and_date(st.header.location_date)
+                if loc_ext:
+                    meta_update["location"] = loc_ext
+            if not meta_update.get("location"):
+                inferred_loc = AdministrativeSanitizer.infer_location_from_agencies(
+                    meta_update.get("issuing_agency", st.header.issuing_agency),
+                    meta_update.get("superior_agency", st.header.superior_agency)
+                )
+                if inferred_loc:
+                    meta_update["location"] = inferred_loc
             if st.doc_type:
                 meta_update["doc_type"] = st.doc_type
             if st.doc_subject:
@@ -743,6 +756,7 @@ class WordEditorWindow(QMainWindow):
             std = meta.get("standard_id", "ND30").upper()
             sup = meta.get("superior_agency", "").strip().upper()
             iss = meta.get("issuing_agency", "").strip().upper()
+            sup, iss = AdministrativeSanitizer.split_and_normalize_agency_header(sup, iss)
             num = meta.get("doc_number", "Số: .../QĐ-UBND")
             date_str = meta.get("date_str", "..., ngày ... tháng ... năm 2026")
             doc_type = meta.get("doc_type", "QUYẾT ĐỊNH")

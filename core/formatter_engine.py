@@ -56,15 +56,19 @@ class FormattingReport:
     images_formatted: int = 0
 
 
-def resolve_clean_output_path(input_path: str, target_ext: str = ".docx") -> str:
+def resolve_clean_output_path(input_path: str, target_ext: str = ".docx", output_dir: Optional[str] = None) -> str:
     """
     Tạo đường dẫn xuất tệp chuẩn hóa sạch sẽ:
+    - Nếu có output_dir chỉ định, lưu tệp vào thư mục đó.
     - Loại bỏ triệt để các hậu tố lặp thừa thãi như _ChuanHoa_ChuanHoa, _KySo...
     - Nếu tệp đầu vào vốn đã là tệp chuẩn hóa (vd: doc_ChuanHoa.docx), giữ nguyên tên
       để cập nhật đè trực tiếp (in-place), không sinh thêm tệp rác mới.
     - Tự động xóa các tệp rác bị lặp đuôi từ các lần chạy trước trong cùng thư mục.
     """
-    folder = os.path.dirname(os.path.abspath(input_path))
+    if output_dir and os.path.exists(output_dir):
+        folder = os.path.abspath(output_dir)
+    else:
+        folder = os.path.dirname(os.path.abspath(input_path))
     base_name = os.path.basename(input_path)
     stem, _ = os.path.splitext(base_name)
 
@@ -187,13 +191,18 @@ class FormatterEngine:
         input_docx_path: str,
         output_docx_path: Optional[str] = None,
         standard_id: str = "ND30",
-        profile_override: Optional[Dict[str, Any]] = None
+        profile_override: Optional[Dict[str, Any]] = None,
+        output_dir: Optional[str] = None
     ) -> FormattingReport:
         """
         Xử lý toàn diện văn bản theo 4 bước được đặc tả.
         """
         if not output_docx_path:
-            output_docx_path = resolve_clean_output_path(input_docx_path, target_ext=os.path.splitext(input_docx_path)[1])
+            output_docx_path = resolve_clean_output_path(
+                input_docx_path,
+                target_ext=os.path.splitext(input_docx_path)[1],
+                output_dir=output_dir
+            )
 
         # Bảo vệ toàn vẹn dữ liệu: Cập nhật an toàn qua tệp tạm thời nếu ghi đè tệp gốc
         is_same_file = (os.path.abspath(output_docx_path) == os.path.abspath(input_docx_path))
@@ -290,7 +299,10 @@ class FormatterEngine:
             # 6. Định dạng các bảng biểu nội dung
             self._apply_tables_formatting(doc, structure, rules, standard_id, report)
 
-            # 7. Lưu file kết quả an toàn
+            # 7. Tự động co trang thông minh chống rớt chữ ký sang trang mới (Smart Anti-Spillover)
+            self._apply_smart_page_fit(doc, rules, standard_id, report, temp_target_path)
+
+            # 8. Lưu file kết quả an toàn
             doc.save(temp_target_path)
             if is_same_file and os.path.exists(temp_target_path):
                 os.replace(temp_target_path, output_docx_path)
@@ -308,7 +320,8 @@ class FormatterEngine:
         output_docx_path: Optional[str] = None,
         standard_id: str = "ND30",
         profile_override: Optional[Dict[str, Any]] = None,
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[callable] = None,
+        output_dir: Optional[str] = None
     ) -> FormattingReport:
         """
         Quy trình xử lý hoàn chỉnh cho tệp PDF scan hoặc DOCX scan:
@@ -316,7 +329,7 @@ class FormatterEngine:
         2. Tự động chuyển giao sang quy trình chuẩn hóa thể thức toàn diện (NĐ 30 / HD 36)
         """
         if not output_docx_path:
-            output_docx_path = resolve_clean_output_path(input_file, target_ext=".docx")
+            output_docx_path = resolve_clean_output_path(input_file, target_ext=".docx", output_dir=output_dir)
 
         import tempfile
         sec_temp_dir = tempfile.mkdtemp(prefix="af_sec_")
@@ -435,15 +448,26 @@ class FormatterEngine:
         superior = structure.header.superior_agency if structure.header.superior_agency else (profile.get("superior_agency", "") if profile else "")
         issuing = structure.header.issuing_agency if structure.header.issuing_agency else (profile.get("issuing_agency", "") if profile else "")
         doc_num = structure.header.doc_number if structure.header.doc_number else (profile.get("doc_number_symbol", "") if profile else "")
-        doc_loc = structure.header.location_date.split(",")[0].strip() if ("," in structure.header.location_date) else ""
-        loc = doc_loc if doc_loc else (profile.get("location", "") if profile else "")
+        
+        # Chuẩn hóa ngắt dòng cơ quan theo NĐ 30: Dòng 1: ỦY BAN NHÂN DÂN, Dòng 2: XÃ THUẬN HẠNH / XÃ ĐỨC AN...
+        superior, issuing = AdministrativeSanitizer.split_and_normalize_agency_header(superior, issuing)
+
+        # Bóc tách địa danh và ngày tháng từ location_date của văn bản gốc
+        doc_loc, doc_date = AdministrativeSanitizer.extract_location_and_date(structure.header.location_date)
+        loc = doc_loc
+        if not loc:
+            prof_loc = profile.get("location", "").strip() if profile else ""
+            if prof_loc and prof_loc.lower() not in ["xã", "huyện", "tỉnh", "thành phố", "...", "…"]:
+                loc = AdministrativeSanitizer.clean_location_name(prof_loc)
+            else:
+                loc = AdministrativeSanitizer.infer_location_from_agencies(issuing, superior)
 
         # TỰ ĐỘNG LÀM SẠCH VÀ BẢO ĐẢM TÍNH ĐỒNG BỘ:
         # Nếu là chuẩn Đảng (HD36), tuyệt đối không để sót tên UBND / Nhà nước từ bảng cũ
         if standard_id.upper() == "HD36":
-            if any(k in superior.upper() for k in ["ỦY BAN NHÂN DÂN", "UBND", "HỘI ĐỒNG NHÂN DÂN", "THÀNH PHỐ HÀ NỘI"]):
+            if any(k in superior.upper() for k in ["ỦY BAN NHÂN DÂN", "UBND", "HỘI ĐỒNG NHÂN DÂN"]):
                 superior = ""
-            if any(k in issuing.upper() for k in ["ỦY BAN NHÂN DÂN", "UBND", "THÀNH PHỐ HÀ NỘI", "CƠ QUAN BAN HÀNH"]):
+            if any(k in issuing.upper() for k in ["ỦY BAN NHÂN DÂN", "UBND", "CƠ QUAN BAN HÀNH"]):
                 issuing = ""
             if "UBND" in doc_num or "Số: ..../...." in doc_num:
                 doc_num = ""
@@ -453,14 +477,17 @@ class FormatterEngine:
                 superior = meta["superior_agency"]
             if not issuing:
                 issuing = meta["issuing_agency"]
-            if not loc or loc == "Hà Nội":
+            if not loc:
                 loc = meta["location"]
             if not doc_num:
                 doc_num = meta["doc_number"]
 
         date_str = structure.header.location_date
-        if not date_str and profile:
-            date_str = "ngày ... tháng ... năm 2026"
+        if not date_str:
+            if loc and loc not in ["...", "…"]:
+                date_str = f"{loc}, ngày ... tháng ... năm 2026"
+            else:
+                date_str = "..., ngày ... tháng ... năm 2026"
 
         if structure.header.has_existing_table:
             # Cập nhật bảng hiện có
@@ -538,6 +565,11 @@ class FormatterEngine:
             # Nếu đoạn văn trống không có chữ và không có ảnh:
             if not raw_text:
                 prev_was_image = False
+                # Dọn dẹp triệt để các đoạn văn trắng thừa để không làm đội chiều cao trang
+                try:
+                    p._element.getparent().remove(p._element)
+                except Exception:
+                    pass
                 continue
 
             # 2. Kiểm tra nếu đoạn văn là Dòng chú thích ảnh (Caption ngay dưới ảnh hoặc có tiền tố Hình/Sơ đồ/Ảnh/Nguồn)
@@ -702,9 +734,9 @@ class FormatterEngine:
             if is_title and not text.startswith("Căn cứ") and not text.startswith("Theo đề nghị"):
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p.paragraph_format.first_line_indent = Mm(0)
-                p.paragraph_format.space_before = Pt(12)
-                p.paragraph_format.space_after = Pt(4)
-                p.paragraph_format.line_spacing = 1.15
+                p.paragraph_format.space_before = Pt(8)
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.line_spacing = 1.1
                 for run in p.runs:
                     if not run_has_drawings_or_images(run):
                         format_run(run, font_name=font_name, size_pt=rules["subject"]["doc_type_font_size_pt"], bold=True)
@@ -733,9 +765,9 @@ class FormatterEngine:
             if text.lower().startswith("về việc") or text.lower().startswith("v/v") or (text.lower().startswith("phân công") and ("nhiệm kỳ" in text.lower() or "nhiem ky" in text.lower() or "chi bộ" in text.lower())):
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p.paragraph_format.first_line_indent = Mm(0)
-                p.paragraph_format.space_before = Pt(2)
-                p.paragraph_format.space_after = Pt(12)
-                p.paragraph_format.line_spacing = 1.15
+                p.paragraph_format.space_before = Pt(1)
+                p.paragraph_format.space_after = Pt(8)
+                p.paragraph_format.line_spacing = 1.1
                 for run in p.runs:
                     if not run_has_drawings_or_images(run):
                         format_run(run, font_name=font_name, size_pt=rules["subject"]["summary_font_size_pt"], bold=True)
@@ -773,8 +805,8 @@ class FormatterEngine:
             if is_heading:
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.first_line_indent = first_line_indent
-                p.paragraph_format.space_before = Pt(6)
-                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.space_before = Pt(4)
+                p.paragraph_format.space_after = Pt(1)
                 p.paragraph_format.line_spacing = line_spacing
                 for run in p.runs:
                     if not run_has_drawings_or_images(run):
@@ -975,6 +1007,20 @@ class FormatterEngine:
                     pos = parsed_footer["signer_position"] or pos
                     name = parsed_footer["signer_name"] or name
 
+            # Dọn sạch các đoạn văn trắng đứng ngay phía trước phần Nơi nhận để không làm đội bảng xuống trang mới
+            prev_node = footer_start_p._p.getprevious()
+            while prev_node is not None and prev_node.tag.endswith('p'):
+                p_prev = docx.text.paragraph.Paragraph(prev_node, doc)
+                if not p_prev.text.strip() and not paragraph_has_drawings_or_images(p_prev):
+                    prev_to_remove = prev_node
+                    prev_node = prev_node.getprevious()
+                    try:
+                        prev_to_remove.getparent().remove(prev_to_remove)
+                    except Exception:
+                        break
+                else:
+                    break
+
             # Chèn Bảng 2 cột ẩn viền ngay trước đoạn văn Nơi nhận
             table = doc.add_table(rows=1, cols=2)
             footer_start_p._p.addprevious(table._tbl)
@@ -1016,3 +1062,116 @@ class FormatterEngine:
             self.hf_builder.build_footer_table(
                 table, standard_id, recipients, auth, pos, name
             )
+
+    def _apply_smart_page_fit(
+        self,
+        doc: docx.Document,
+        rules: Dict[str, Any],
+        standard_id: str,
+        report: FormattingReport,
+        temp_target_path: str
+    ):
+        """
+        Cơ chế Tự động Co trang Chống Rớt Chữ Ký (Smart Anti-Spillover & Auto-Fit):
+        Tự động nhận diện khi phần Nơi nhận & Chữ ký bị đẩy sang trang mới (Orphan Signature)
+        hoặc khi chiều cao văn bản suýt soát tràn trang, thực hiện co dòng và giảm khoảng cách đoạn
+        vừa đủ để giữ trọn vẹn văn bản trên số trang tối thiểu hợp lý theo đúng quy chuẩn NĐ 30 / HĐ 36.
+        """
+        # 1. Dọn dẹp triệt để các đoạn văn trắng thừa ở cuối tài liệu
+        while doc.paragraphs and not doc.paragraphs[-1].text.strip() and not paragraph_has_drawings_or_images(doc.paragraphs[-1]):
+            try:
+                p_last = doc.paragraphs[-1]
+                p_last._element.getparent().remove(p_last._element)
+            except Exception:
+                break
+
+        # 2. Thuật toán ước lượng chiều cao trang OpenXML siêu tốc (Zero COM Overhead, tốc độ < 1ms)
+        # Trang A4: 297mm = 841.9 pt. Lề trên: 20mm (56.7pt), Lề dưới: 20mm (56.7pt)
+        # Chiều cao khả dụng cho nội dung = 841.9 - 113.4 = 728.5 pt.
+        page_avail_pt = 728.5
+
+        # Chiều cao khung tiêu đề cơ quan & quốc hiệu (~65-75 pt)
+        h_header = 70.0
+        # Chiều cao khung Nơi nhận & Chữ ký (~80-95 pt)
+        h_footer = 85.0
+        h_content = 0.0
+
+        for p in doc.paragraphs:
+            txt = p.text.strip()
+            if not txt:
+                continue
+            # Số dòng văn bản (trung bình 1 dòng A4 có ~78 ký tự 13pt)
+            lines = max(1, (len(txt) + 75) // 78)
+            sb = p.paragraph_format.space_before.pt if p.paragraph_format.space_before else 2.0
+            sa = p.paragraph_format.space_after.pt if p.paragraph_format.space_after else 0.0
+            ls = p.paragraph_format.line_spacing if p.paragraph_format.line_spacing else 1.12
+            line_h = 13.0 * ls * 1.15
+            p_h = (lines * line_h) + sb + sa
+            h_content += p_h
+
+        for tbl in doc.tables:
+            t_txt = " ".join(c.text for r in tbl.rows for c in r.cells).upper()
+            if any(k in t_txt for k in ["CỘNG HÒA", "CONG HOA", "NƠI NHẬN", "NOI NHAN"]):
+                continue  # Bảng header và footer đã tính riêng
+            for row in tbl.rows:
+                max_lines = max((len(c.text.strip()) + 40) // 40 for c in row.cells) if row.cells else 1
+                h_content += max(20.0, max_lines * 16.0)
+
+        total_est_height = h_header + h_content + h_footer
+
+        # 3. Nhận diện nguy cơ tràn trang:
+        # Trường hợp 1 trang: Tổng chiều cao xấp xỉ ngưỡng tràn (từ 680pt đến 760pt)
+        # Trường hợp nhiều trang: Phần dư (rem) nhỏ hơn 115pt -> chỉ có chữ ký rơi sang trang mới
+        is_spilled = False
+        rem = total_est_height % page_avail_pt
+        if total_est_height <= page_avail_pt:
+            if total_est_height >= (page_avail_pt - 48.0):  # 680.5 - 728.5 pt
+                is_spilled = True
+        else:
+            if rem <= 115.0 or rem >= (page_avail_pt - 48.0):
+                is_spilled = True
+
+        # 3. Nếu phát hiện bị tràn / rớt chữ ký: Tự động co trang thông minh
+        if is_spilled:
+            # Tinh chỉnh nhẹ nhàng các khoảng cách và giãn dòng
+            # Giãn dòng: 1.08 (vừa mắt, vẫn đạt chuẩn NĐ 30 từ 1.0 - 1.5)
+            # Space before đoạn: 1.0pt
+            for p in doc.paragraphs:
+                txt = p.text.strip()
+                if not txt:
+                    continue
+                # Bỏ qua tiêu đề văn bản
+                if any(t in txt.upper() for t in ["QUYẾT ĐỊNH", "THÔNG BÁO", "NGHỊ QUYẾT", "BÁO CÁO", "TỜ TRÌNH"]):
+                    p.paragraph_format.space_before = Pt(4)
+                    p.paragraph_format.space_after = Pt(2)
+                    p.paragraph_format.line_spacing = 1.05
+                    continue
+                if p.paragraph_format.line_spacing is not None:
+                    p.paragraph_format.line_spacing = 1.08
+                if p.paragraph_format.space_before and p.paragraph_format.space_before.pt > 1.5:
+                    p.paragraph_format.space_before = Pt(1.0)
+                p.paragraph_format.space_after = Pt(0)
+
+            # Tinh chỉnh bảng Nơi nhận & Chữ ký
+            for tbl in doc.tables:
+                t_check = " ".join(c.text for r in tbl.rows for c in r.cells).upper()
+                if "NƠI NHẬN" in t_check or "NOI NHAN" in t_check:
+                    if len(tbl.columns) >= 2:
+                        cell_right = tbl.cell(0, 1)
+                        for p in cell_right.paragraphs:
+                            if p.paragraph_format.space_before and p.paragraph_format.space_before.pt > 20:
+                                p.paragraph_format.space_before = Pt(18)
+                        cell_left = tbl.cell(0, 0)
+                        for p in cell_left.paragraphs:
+                            p.paragraph_format.space_before = Pt(0)
+                            p.paragraph_format.space_after = Pt(0)
+                            p.paragraph_format.line_spacing = 1.0
+
+            # Ghi nhận vào báo cáo
+            report.all_issues.append(LintIssue(
+                issue_type="page_fit_optimized",
+                original="[Tràn chữ ký sang trang riêng]",
+                replacement="[Tự động co trang thông minh (Anti-Spillover)]",
+                message="Tự động tối ưu giãn dòng và khoảng cách đoạn để chống rớt phần Nơi nhận & Chữ ký sang trang mới theo chuẩn NĐ 30",
+                severity="auto_fixed"
+            ))

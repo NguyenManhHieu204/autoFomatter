@@ -377,7 +377,15 @@ class ComplianceAuditDialog(QDialog):
             return
 
         now = datetime.now()
-        loc = self.canvas.metadata.get("location", "Hà Nội") or "Hà Nội"
+        loc = self.canvas.metadata.get("location", "").strip()
+        if not loc or loc in ["Xã", "Huyện", "Tỉnh", "...", "…"]:
+            from core.administrative_sanitizer import AdministrativeSanitizer
+            loc = AdministrativeSanitizer.infer_location_from_agencies(
+                self.canvas.metadata.get("issuing_agency", ""),
+                self.canvas.metadata.get("superior_agency", "")
+            )
+        if not loc or loc in ["...", "…"]:
+            loc = "Hà Nội"
 
         if rule_id == "PLACEHOLDER_DATE":
             # Tự động thay ngày tháng thực tế hiện tại
@@ -477,7 +485,15 @@ class ComplianceAuditDialog(QDialog):
             return
 
         now = datetime.now()
-        loc = self.canvas.metadata.get("location", "Hà Nội") or "Hà Nội"
+        loc = self.canvas.metadata.get("location", "").strip()
+        if not loc or loc in ["Xã", "Huyện", "Tỉnh", "...", "…"]:
+            from core.administrative_sanitizer import AdministrativeSanitizer
+            loc = AdministrativeSanitizer.infer_location_from_agencies(
+                self.canvas.metadata.get("issuing_agency", ""),
+                self.canvas.metadata.get("superior_agency", "")
+            )
+        if not loc or loc in ["...", "…"]:
+            loc = "Hà Nội"
 
         # 1. Sửa ngày tháng nếu có ...
         cur_date = self.canvas.metadata.get("date_str", "")
